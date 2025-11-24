@@ -1,42 +1,33 @@
 # StrudelJam 🎹
 
-**Crea musica elettronica in tempo reale senza scrivere una sola riga di codice!**
+**Crea musica elettronica in tempo reale!**
 
-StrudelJam è un’applicazione web (Single Page App) progettata per democratizzare la creazione di musica dal vivo (Live Coding). Utilizza la potenza del linguaggio **Strudel**, ma offre un’interfaccia visiva intuitiva che permette a chiunque di costruire beat, linee di basso e melodie in stile *Psytrance* e *Techno* in pochi secondi.
-
----
-
-## 📖 Descrizione
-
-L’obiettivo di StrudelJam è semplice: permetterti di "suonare" il codice.  
-Invece di scrivere comandi complessi, utilizzi pulsanti, slider e una griglia visiva.
-
-La magia sta nel fatto che tutto ciò che fai nell’interfaccia **genera codice Strudel reale in background**. Puoi vedere questo codice, imparare da esso o semplicemente ignorarlo e concentrarti sul ritmo. È lo strumento perfetto per improvvisare jam musicali, provare idee rapidamente o avvicinarsi al mondo del Live Coding.
+StrudelJam è un’applicazione web progettata per la creazione di musica dal vivo. Utilizza la potenza del linguaggio **Strudel** in un’interfaccia visiva intuitiva.
 
 ---
 
 ## ✨ Caratteristiche principali
 
-*   **Interfaccia Visuale Intuitiva**:
-    *   **Aggiungi/Rimuovi Tracce**: Aggiungi elementi come Kick, Bassi Psy, Hi-Hats, Clap e Sintetizzatori con un solo clic.
-    *   **Step Sequencer**: Una griglia a 16 step per disegnare i tuoi ritmi in modo visuale.
-    *   **Controlli di Mixaggio**: Modifica il volume e silenzia (Mute) le singole tracce all’istante.
+*   **Interfaccia Visuale**:
+    *   **Aggiungi/Rimuovi Tracce**: Aggiungi elementi come Kick, Bassi Psy, Hi-Hats, Clap e Sintetizzatori con un clic.
+    *   **Step Sequencer**: Una griglia a 16 step per disegnare ritmi.
+    *   **Controlli**: Modifica il volume e silenzia le singole tracce all’istante.
 
-*   **Motore Audio Potente**:
-    *   Riproduzione in tempo reale direttamente nel browser (senza download aggiuntivi).
-    *   Sincronizzazione perfetta del BPM.
+*   **Motore Audio**:
+    *   Riproduzione in tempo reale nel browser.
+    *   Sincronizzazione del BPM.
 
 *   **Connessione con il Codice (Dual Mode)**:
-    *   **Generazione in Tempo Reale**: Ogni pulsante che premi aggiorna il pannello del codice Strudel.
-    *   **Pannello del Codice**: Apri il pannello laterale per vedere cosa succede "sotto il cofano".
+    *   **Generazione in Tempo Reale**: Ogni pulsante che premuto aggiorna il pannello del codice Strudel.
+    *   **Pannello del Codice**: modifiche attuate nel pannello a comparsa aggiornano l'interfaccia.
 
-*   **Registra la Tua Sessione**:
+*   **Registrazione di sessione**:
     *   Pulsante di registrazione integrato.
-    *   Scarica automaticamente la tua jam session in formato audio di alta qualità (.webm) per condividerla.
+    *   Pulsante per scaricare la sessione in formato .webm.
 
 ---
 
-## 🚀 Come iniziare (Installazione locale)
+## 🚀 Installazione locale
 
 Segui questi passaggi per eseguire il progetto sul tuo computer:
 
@@ -71,7 +62,7 @@ Assicurati di avere installato **Node.js** e un gestore di pacchetti come **Yarn
 
 ## 🛠️ Tecnologie Utilizzate
 
-Questo progetto è stato realizzato con tecnologie web moderne e robuste:
+Questo progetto è stato realizzato con:
 
 *   **React**: Per un’interfaccia utente reattiva e modulare.
 *   **TypeScript**: Per un codice sicuro e manutenibile.
@@ -81,21 +72,8 @@ Questo progetto è stato realizzato con tecnologie web moderne e robuste:
 
 ---
 
-## 🤝 Contribuire
-
-Le contribuzioni sono benvenute! Se hai idee per nuovi strumenti, miglioramenti dell’interfaccia o correzioni di bug:
-
-1.  Fai un fork del progetto.
-2.  Crea un branch per la tua funzionalità (`git checkout -b feature/NuovoStrumento`).
-3.  Fai le tue modifiche e committale.
-4.  Pusha il branch e apri una Pull Request.
-
----
-
 ## 📄 Licenza
 
 Questo progetto è distribuito sotto licenza **MIT**. Sei libero di usarlo, modificarlo e ridistribuirlo.
 
 ---
-
-*Creato con ❤️ e codice.*
