@@ -1,100 +1,101 @@
 # StrudelJam 🎹
 
-**¡Crea música electrónica en tiempo real sin escribir una sola línea de código!**
+**Crea musica elettronica in tempo reale senza scrivere una sola riga di codice!**
 
-StrudelJam es una aplicación web (Single Page App) diseñada para democratizar la creación de música en vivo (Live Coding). Utiliza la potencia del lenguaje **Strudel**, pero ofrece una interfaz visual intuitiva para que cualquiera pueda construir beats, líneas de bajo y melodías al estilo *Psytrance* y *Techno* en cuestión de segundos.
-
----
-
-## 📖 Descripción
-
-El objetivo de StrudelJam es simple: permitirte "tocar" el código. En lugar de escribir comandos complejos, utilizas botones, deslizadores y una cuadrícula visual.
-
-Lo mágico es que todo lo que haces en la interfaz **genera código Strudel real en segundo plano**. Puedes ver este código, aprender de él o simplemente ignorarlo y concentrarte en el ritmo. Es la herramienta perfecta para improvisar jams musicales, probar ideas rápidas o introducirse en el mundo del Live Coding.
+StrudelJam è un’applicazione web (Single Page App) progettata per democratizzare la creazione di musica dal vivo (Live Coding). Utilizza la potenza del linguaggio **Strudel**, ma offre un’interfaccia visiva intuitiva che permette a chiunque di costruire beat, linee di basso e melodie in stile *Psytrance* e *Techno* in pochi secondi.
 
 ---
 
-## ✨ Características Principales
+## 📖 Descrizione
 
-*   **Interfaz Visual Intuitiva**:
-    *   **Añadir/Quitar Pistas**: Agrega elementos como Kicks, Bajos Psy, Hi-Hats, Claps y Sintetizadores con un solo clic.
-    *   **Secuenciador de Pasos**: Una cuadrícula de 16 pasos para dibujar tus ritmos visualmente.
-    *   **Controles de Mezcla**: Ajusta el volumen y silencia (Mute) pistas individuales al instante.
+L’obiettivo di StrudelJam è semplice: permetterti di "suonare" il codice.  
+Invece di scrivere comandi complessi, utilizzi pulsanti, slider e una griglia visiva.
 
-*   **Motor de Audio Potente**:
-    *   Reproducción en tiempo real basada en el navegador (sin descargas extra).
-    *   Sincronización perfecta de BPM.
-
-*   **Conexión con Código (Dual Mode)**:
-    *   **Generación en Vivo**: Cada botón que tocas actualiza el panel de código Strudel.
-    *   **Panel de Código**: Abre el panel lateral para ver qué está pasando "bajo el capó".
-
-*   **Graba tu Sesión**:
-    *   Botón de grabación integrado.
-    *   Descarga tu jam session automáticamente en formato de audio de alta calidad (.webm) para compartirla.
+La magia sta nel fatto che tutto ciò che fai nell’interfaccia **genera codice Strudel reale in background**. Puoi vedere questo codice, imparare da esso o semplicemente ignorarlo e concentrarti sul ritmo. È lo strumento perfetto per improvvisare jam musicali, provare idee rapidamente o avvicinarsi al mondo del Live Coding.
 
 ---
 
-## 🚀 Cómo empezar (Instalación Local)
+## ✨ Caratteristiche principali
 
-Sigue estos pasos para ejecutar el proyecto en tu computadora:
+*   **Interfaccia Visuale Intuitiva**:
+    *   **Aggiungi/Rimuovi Tracce**: Aggiungi elementi come Kick, Bassi Psy, Hi-Hats, Clap e Sintetizzatori con un solo clic.
+    *   **Step Sequencer**: Una griglia a 16 step per disegnare i tuoi ritmi in modo visuale.
+    *   **Controlli di Mixaggio**: Modifica il volume e silenzia (Mute) le singole tracce all’istante.
 
-### Prerrequisitos
-Asegúrate de tener instalado **Node.js** y un gestor de paquetes como **Yarn** o **NPM**.
+*   **Motore Audio Potente**:
+    *   Riproduzione in tempo reale direttamente nel browser (senza download aggiuntivi).
+    *   Sincronizzazione perfetta del BPM.
 
-### Pasos
+*   **Connessione con il Codice (Dual Mode)**:
+    *   **Generazione in Tempo Reale**: Ogni pulsante che premi aggiorna il pannello del codice Strudel.
+    *   **Pannello del Codice**: Apri il pannello laterale per vedere cosa succede "sotto il cofano".
 
-1.  **Clonar o Descargar**:
-    Descarga los archivos del proyecto en tu carpeta preferida.
+*   **Registra la Tua Sessione**:
+    *   Pulsante di registrazione integrato.
+    *   Scarica automaticamente la tua jam session in formato audio di alta qualità (.webm) per condividerla.
 
-2.  **Instalar Dependencias**:
-    Abre una terminal en la carpeta del proyecto y ejecuta:
+---
+
+## 🚀 Come iniziare (Installazione locale)
+
+Segui questi passaggi per eseguire il progetto sul tuo computer:
+
+### Prerequisiti
+Assicurati di avere installato **Node.js** e un gestore di pacchetti come **Yarn** o **NPM**.
+
+### Passaggi
+
+1.  **Clona o Scarica**:  
+    Scarica i file del progetto nella cartella desiderata.
+
+2.  **Installa le Dipendenze**:  
+    Apri il terminale nella cartella del progetto ed esegui:
     ```bash
     yarn install
-    # o si usas npm:
+    # oppure se usi npm:
     # npm install
     ```
 
-3.  **Iniciar el Servidor de Desarrollo**:
-    Arranca la aplicación localmente:
+3.  **Avvia il Server di Sviluppo**:  
+    Avvia l’applicazione in locale:
     ```bash
     yarn run dev
-    # o si usas npm:
+    # oppure se usi npm:
     # npm run dev
     ```
 
-4.  **¡A crear!**:
-    Abre tu navegador en la dirección que aparece en la terminal (usualmente `http://localhost:5173`) y empieza a hacer música.
+4.  **Inizia a Creare!**  
+    Apri il browser all’indirizzo indicato nel terminale (di solito `http://localhost:5173`) e comincia a fare musica.
 
 ---
 
-## 🛠️ Tecnologías Utilizadas
+## 🛠️ Tecnologie Utilizzate
 
-Este proyecto ha sido construido con tecnologías web modernas y robustas:
+Questo progetto è stato realizzato con tecnologie web moderne e robuste:
 
-*   **React**: Para una interfaz de usuario reactiva y modular.
-*   **TypeScript**: Para un código seguro y mantenible.
-*   **Tone.js**: El motor de audio web que impulsa los sonidos.
-*   **Tailwind CSS**: Para un diseño elegante, oscuro y responsivo.
-*   **Vite**: Para un entorno de desarrollo ultrarrápido.
-
----
-
-## 🤝 Contribuir
-
-¡Las contribuciones son bienvenidas! Si tienes ideas para nuevos instrumentos, mejoras en la interfaz o correcciones de errores:
-
-1.  Haz un Fork del proyecto.
-2.  Crea una rama para tu funcionalidad (`git checkout -b feature/NuevoInstrumento`).
-3.  Haz tus cambios y commitealos.
-4.  Sube tu rama y abre un Pull Request.
+*   **React**: Per un’interfaccia utente reattiva e modulare.
+*   **TypeScript**: Per un codice sicuro e manutenibile.
+*   **Tone.js**: Motore audio web che gestisce i suoni.
+*   **Tailwind CSS**: Per un design elegante, scuro e responsive.
+*   **Vite**: Per un ambiente di sviluppo ultrarapido.
 
 ---
 
-## 📄 Licencia
+## 🤝 Contribuire
 
-Este proyecto se distribuye bajo la licencia **MIT**. Eres libre de usarlo, modificarlo y distribuirlo.
+Le contribuzioni sono benvenute! Se hai idee per nuovi strumenti, miglioramenti dell’interfaccia o correzioni di bug:
+
+1.  Fai un fork del progetto.
+2.  Crea un branch per la tua funzionalità (`git checkout -b feature/NuovoStrumento`).
+3.  Fai le tue modifiche e committale.
+4.  Pusha il branch e apri una Pull Request.
 
 ---
 
-*Hecho con ❤️ y código.*
+## 📄 Licenza
+
+Questo progetto è distribuito sotto licenza **MIT**. Sei libero di usarlo, modificarlo e ridistribuirlo.
+
+---
+
+*Creato con ❤️ e codice.*
