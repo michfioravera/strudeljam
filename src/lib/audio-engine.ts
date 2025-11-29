@@ -73,7 +73,7 @@ class AudioEngine {
     }
 
     // 2. Create Effects
-    const distortion = new Tone.Distortion(0).toDestination(); // Wet 0 initially
+    const distortion = new Tone.Distortion(0).toDestination();
     const delay = new Tone.FeedbackDelay("8n", 0.5);
     delay.wet.value = 0;
     const reverb = new Tone.Reverb(1.5);
@@ -82,14 +82,7 @@ class AudioEngine {
     const volume = new Tone.Volume(0);
 
     // 3. Chain: Synth -> Distortion -> Delay -> Reverb -> Volume -> Panner -> Recorder
-    // Note: Tone.js chaining. 
-    // We need to be careful with connections.
-    
     synth.chain(distortion, delay, reverb, volume, panner, this.recorder);
-    // Also connect to destination (speakers) via recorder? 
-    // Recorder is usually an endpoint, but we want to hear it too.
-    // Tone.Recorder doesn't pass audio through by default in some versions, but usually it's a tap.
-    // Let's connect Panner to Destination AND Recorder.
     panner.toDestination();
     panner.connect(this.recorder);
 
@@ -103,29 +96,22 @@ class AudioEngine {
       this.sequence.dispose();
     }
 
-    // Update effects for all tracks immediately
+    // Update effects/volume for all tracks immediately
     tracks.forEach(track => {
         if (this.channels.has(track.id)) {
             const ch = this.channels.get(track.id)!;
             
-            // Update Volume
+            // Update Master Track Volume
             const volDb = track.volume <= 0.01 ? -100 : 20 * Math.log10(track.volume);
             ch.volume.volume.rampTo(volDb, 0.1);
             
             // Update Pan
             ch.panner.pan.rampTo(track.pan, 0.1);
 
-            // Update Effects (0-100 -> 0-1)
-            ch.distortion.distortion = track.distortion / 100;
-            ch.distortion.wet.value = track.distortion > 0 ? 1 : 0; // Simple wet/dry logic for distortion often implies amount
-            // Actually Tone.Distortion 'distortion' param is amount, wet is mix. 
-            // Let's map 0-100 to wetness mostly, but distortion amount is also key.
-            // Let's keep distortion amount fixed at 0.8 and control wet, or map both.
-            ch.distortion.distortion = 0.4 + (track.distortion / 200); // 0.4 to 0.9
+            // Update Effects
+            ch.distortion.distortion = 0.4 + (track.distortion / 200);
             ch.distortion.wet.value = track.distortion / 100;
-
             ch.delay.wet.value = track.delay / 100;
-            
             ch.reverb.wet.value = track.reverb / 100;
         }
     });
@@ -145,25 +131,26 @@ class AudioEngine {
           const instDef = INSTRUMENTS.find(i => i.id === track.instrument);
           if (!instDef) return;
 
-          // Ensure channel exists
           const ch = this.getChannel(track.id, track.instrument);
           const synth = ch.synth;
           
-          // Note: Volume/Effects are updated outside the loop or could be updated here if we supported per-step automation
-          // For now, they are per-track.
-
           const noteToPlay = trackStep.note || instDef.defaultNote || 'C2';
+          const velocity = (trackStep.velocity ?? 100) / 100; // Normalize 1-100 to 0-1
 
           if (instDef.id === 'kick') {
-            synth.triggerAttackRelease(noteToPlay, '8n', time);
+            (synth as Tone.MembraneSynth).triggerAttackRelease(noteToPlay, '8n', time, velocity);
           } else if (instDef.id === 'bass') {
-            synth.triggerAttackRelease(noteToPlay, '8n', time);
+            (synth as Tone.FMSynth).triggerAttackRelease(noteToPlay, '8n', time, velocity);
           } else if (instDef.id === 'hat') {
-            synth.triggerAttackRelease('32n', time, 0.7);
-          } else if (instDef.id === 'lead') {
-             synth.triggerAttackRelease(noteToPlay, '16n', time);
+             // MetalSynth needs note/freq. '32n' is duration.
+            (synth as Tone.MetalSynth).triggerAttackRelease(noteToPlay, '32n', time, velocity);
+          } else if (instDef.id === 'clap' || instDef.id === 'snare') {
+             // NoiseSynth takes (duration, time, velocity)
+            (synth as Tone.NoiseSynth).triggerAttackRelease('8n', time, velocity);
+          } else if (instDef.id === 'lead' || instDef.id === 'perc') {
+             (synth as Tone.PolySynth).triggerAttackRelease(noteToPlay, '16n', time, velocity);
           } else {
-            synth.triggerAttackRelease('8n', time);
+            (synth as Tone.Synth).triggerAttackRelease(noteToPlay, '8n', time, velocity);
           }
         }
       });

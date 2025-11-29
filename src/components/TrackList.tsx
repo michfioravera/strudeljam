@@ -11,7 +11,7 @@ interface TrackListProps {
 }
 
 const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-const OCTAVES = [2, 3, 4, 5, 6];
+const OCTAVES = [1, 2, 3, 4, 5, 6];
 
 export const TrackList: React.FC<TrackListProps> = ({ tracks, currentStep, onUpdateTrack, onRemoveTrack }) => {
   const [editingStep, setEditingStep] = useState<{ trackId: string, stepIndex: number } | null>(null);
@@ -35,7 +35,7 @@ export const TrackList: React.FC<TrackListProps> = ({ tracks, currentStep, onUpd
     
     if (!step.active) {
       const newSteps = [...track.steps];
-      newSteps[index] = { ...step, active: true };
+      newSteps[index] = { ...step, active: true, velocity: 100 }; // Default velocity 100
       onUpdateTrack(track.id, { steps: newSteps });
     } else {
       setEditingStep({ trackId: track.id, stepIndex: index });
@@ -51,6 +51,19 @@ export const TrackList: React.FC<TrackListProps> = ({ tracks, currentStep, onUpd
     newSteps[editingStep.stepIndex] = { 
       ...newSteps[editingStep.stepIndex], 
       note: note 
+    };
+    onUpdateTrack(track.id, { steps: newSteps });
+  };
+
+  const updateVelocity = (velocity: number) => {
+    if (!editingStep) return;
+    const track = tracks.find(t => t.id === editingStep.trackId);
+    if (!track) return;
+
+    const newSteps = [...track.steps];
+    newSteps[editingStep.stepIndex] = { 
+      ...newSteps[editingStep.stepIndex], 
+      velocity: velocity 
     };
     onUpdateTrack(track.id, { steps: newSteps });
   };
@@ -100,7 +113,7 @@ export const TrackList: React.FC<TrackListProps> = ({ tracks, currentStep, onUpd
                         min="0" 
                         max="1" 
                         step="0.05"
-                        value={track.volume}
+                        value={track.volume ?? 1}
                         onChange={(e) => onUpdateTrack(track.id, { volume: parseFloat(e.target.value) })}
                         className="w-20 h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-cyan-500"
                     />
@@ -114,6 +127,7 @@ export const TrackList: React.FC<TrackListProps> = ({ tracks, currentStep, onUpd
                     <div key={idx} className="relative">
                         <button
                         onClick={(e) => handleStepClick(track, idx, e)}
+                        style={{ opacity: step.active ? 0.4 + ((step.velocity ?? 100) / 100 * 0.6) : 1 }}
                         className={clsx(
                             "w-full h-8 md:h-12 rounded-md transition-all duration-150 border border-slate-700/50 relative overflow-hidden flex items-center justify-center group",
                             step.active 
@@ -124,8 +138,9 @@ export const TrackList: React.FC<TrackListProps> = ({ tracks, currentStep, onUpd
                         )}
                         >
                         {step.active && (
-                            <span className="text-[10px] font-bold text-black/60 hidden md:block">
-                            {step.note}
+                            <span className="text-[9px] font-bold text-black/70 hidden md:block leading-tight">
+                            {step.note}<br/>
+                            <span className="opacity-70">{step.velocity ?? 100}</span>
                             </span>
                         )}
                         {currentStep === idx && step.active && (
@@ -133,19 +148,21 @@ export const TrackList: React.FC<TrackListProps> = ({ tracks, currentStep, onUpd
                         )}
                         </button>
 
-                        {/* Note Editor Popover */}
+                        {/* Step Editor Popover */}
                         {editingStep?.trackId === track.id && editingStep?.stepIndex === idx && (
                             <div 
                                 ref={popoverRef}
                                 className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 bg-slate-800 border border-slate-600 shadow-2xl rounded-lg p-3 w-48 animate-in fade-in zoom-in-95 duration-100"
                             >
                                 <div className="flex justify-between items-center mb-2 pb-2 border-b border-slate-700">
-                                    <span className="text-xs font-bold text-slate-400">EDIT NOTE</span>
+                                    <span className="text-xs font-bold text-slate-400">EDIT STEP</span>
                                     <button onClick={clearStep} className="text-red-400 hover:text-red-300" title="Rimuovi Step">
                                         <Trash2 size={14} />
                                     </button>
                                 </div>
-                                <div className="flex gap-2">
+                                
+                                {/* Note Selection */}
+                                <div className="flex gap-2 mb-3">
                                     <select 
                                         className="bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded p-1 flex-1 focus:border-cyan-500 outline-none"
                                         value={step.note.replace(/\d+/, '')}
@@ -167,6 +184,23 @@ export const TrackList: React.FC<TrackListProps> = ({ tracks, currentStep, onUpd
                                         {OCTAVES.map(o => <option key={o} value={o}>{o}</option>)}
                                     </select>
                                 </div>
+
+                                {/* Velocity Control */}
+                                <div className="flex flex-col gap-1">
+                                    <div className="flex justify-between text-[10px] text-slate-400 font-bold uppercase">
+                                        <span>Velocity</span>
+                                        <span>{step.velocity ?? 100}</span>
+                                    </div>
+                                    <input 
+                                        type="range" 
+                                        min="1" 
+                                        max="100" 
+                                        value={step.velocity ?? 100}
+                                        onChange={(e) => updateVelocity(parseInt(e.target.value))}
+                                        className="w-full h-1.5 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-green-500"
+                                    />
+                                </div>
+
                                 <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-8 border-transparent border-t-slate-800" />
                             </div>
                         )}
@@ -204,14 +238,14 @@ export const TrackList: React.FC<TrackListProps> = ({ tracks, currentStep, onUpd
                     <div className="flex flex-col gap-1">
                         <div className="flex justify-between text-[10px] text-slate-400 font-bold uppercase">
                             <span>Pan</span>
-                            <span>{track.pan.toFixed(1)}</span>
+                            <span>{(track.pan ?? 0).toFixed(1)}</span>
                         </div>
                         <input 
                             type="range" 
                             min="-1" 
                             max="1" 
                             step="0.1"
-                            value={track.pan}
+                            value={track.pan ?? 0}
                             onChange={(e) => onUpdateTrack(track.id, { pan: parseFloat(e.target.value) })}
                             className="w-full h-1.5 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
                         />
@@ -225,13 +259,13 @@ export const TrackList: React.FC<TrackListProps> = ({ tracks, currentStep, onUpd
                     <div className="flex flex-col gap-1">
                         <div className="flex justify-between text-[10px] text-slate-400 font-bold uppercase">
                             <span>Delay</span>
-                            <span>{track.delay}%</span>
+                            <span>{track.delay ?? 0}%</span>
                         </div>
                         <input 
                             type="range" 
                             min="0" 
                             max="100" 
-                            value={track.delay}
+                            value={track.delay ?? 0}
                             onChange={(e) => onUpdateTrack(track.id, { delay: parseInt(e.target.value) })}
                             className="w-full h-1.5 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-purple-500"
                         />
@@ -241,13 +275,13 @@ export const TrackList: React.FC<TrackListProps> = ({ tracks, currentStep, onUpd
                     <div className="flex flex-col gap-1">
                         <div className="flex justify-between text-[10px] text-slate-400 font-bold uppercase">
                             <span>Reverb</span>
-                            <span>{track.reverb}%</span>
+                            <span>{track.reverb ?? 0}%</span>
                         </div>
                         <input 
                             type="range" 
                             min="0" 
                             max="100" 
-                            value={track.reverb}
+                            value={track.reverb ?? 0}
                             onChange={(e) => onUpdateTrack(track.id, { reverb: parseInt(e.target.value) })}
                             className="w-full h-1.5 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-indigo-500"
                         />
@@ -257,13 +291,13 @@ export const TrackList: React.FC<TrackListProps> = ({ tracks, currentStep, onUpd
                     <div className="flex flex-col gap-1">
                         <div className="flex justify-between text-[10px] text-slate-400 font-bold uppercase">
                             <span>Distortion</span>
-                            <span>{track.distortion}%</span>
+                            <span>{track.distortion ?? 0}%</span>
                         </div>
                         <input 
                             type="range" 
                             min="0" 
                             max="100" 
-                            value={track.distortion}
+                            value={track.distortion ?? 0}
                             onChange={(e) => onUpdateTrack(track.id, { distortion: parseInt(e.target.value) })}
                             className="w-full h-1.5 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-orange-500"
                         />

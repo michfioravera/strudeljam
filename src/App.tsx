@@ -15,7 +15,7 @@ function App() {
   const [activeSequenceId, setActiveSequenceId] = useState<string>('seq-1');
   const [playMode, setPlayMode] = useState<'single' | 'all'>('single');
   
-  // Derived state for current tracks (to maintain compatibility with existing code structure)
+  // Derived state for current tracks
   const activeSequence = sequences.find(s => s.id === activeSequenceId) || sequences[0];
   const tracks = activeSequence.tracks;
 
@@ -138,7 +138,8 @@ function App() {
       instrument: type,
       steps: Array(TOTAL_STEPS).fill(null).map(() => ({ 
         active: false, 
-        note: instDef?.defaultNote || 'C3' 
+        note: instDef?.defaultNote || 'C3',
+        velocity: 100
       })),
       volume: 0.8,
       muted: false,
@@ -186,7 +187,7 @@ function App() {
         const fullTracks: Track[] = parsed.map(p => ({
             id: p.id || Math.random().toString(),
             instrument: p.instrument as InstrumentType,
-            steps: p.steps || Array(TOTAL_STEPS).fill(null).map(() => ({ active: false, note: 'C3' })),
+            steps: p.steps || Array(TOTAL_STEPS).fill(null).map(() => ({ active: false, note: 'C3', velocity: 100 })),
             volume: p.volume ?? 0.8,
             muted: p.muted ?? false,
             pan: p.pan ?? 0,
@@ -363,7 +364,7 @@ function App() {
           </div>
           <div className="p-4 bg-slate-900 border-t border-slate-800 text-xs text-slate-500">
             <p>Modifica il codice per aggiornare la UI (sperimentale).</p>
-            <p className="mt-1">Supporta <code>.note</code>, <code>.pan</code>, <code>.delay</code>, <code>.reverb</code>, <code>.distortion</code>.</p>
+            <p className="mt-1">Supporta <code>.note</code>, <code>.gain</code>, <code>.pan</code>, <code>.delay</code>, <code>.reverb</code>, <code>.distortion</code>.</p>
           </div>
         </div>
 

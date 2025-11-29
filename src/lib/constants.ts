@@ -23,17 +23,18 @@ export const INSTRUMENTS: InstrumentDef[] = [
 export interface Step {
   active: boolean;
   note: string;
+  velocity: number; // 1-100
 }
 
 export interface Track {
   id: string;
   instrument: InstrumentType;
   steps: Step[];
-  volume: number; // 0-1 linear
+  volume: number; // 0-1 linear (Master volume for the track)
   muted: boolean;
-  // New Mix Controls
+  // Mix Controls
   pan: number;        // -1 to 1
-  delay: number;      // 0 to 100 (converted to 0-1 for code)
+  delay: number;      // 0 to 100
   reverb: number;     // 0 to 100
   distortion: number; // 0 to 100
 }
