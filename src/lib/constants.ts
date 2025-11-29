@@ -31,6 +31,11 @@ export interface Track {
   steps: Step[];
   volume: number; // 0-1 linear
   muted: boolean;
+  // New Mix Controls
+  pan: number;        // -1 to 1
+  delay: number;      // 0 to 100 (converted to 0-1 for code)
+  reverb: number;     // 0 to 100
+  distortion: number; // 0 to 100
 }
 
 export interface Sequence {

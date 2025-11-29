@@ -55,11 +55,6 @@ function App() {
       if (currentIndex !== -1) {
         const nextIndex = (currentIndex + 1) % currentSeqs.length;
         const nextSeq = currentSeqs[nextIndex];
-        
-        // We schedule the switch. Since this is running inside Tone.Draw, 
-        // updating React state here triggers a re-render.
-        // For tighter timing, we might need to look ahead, but for this UI-driven app,
-        // switching state at step 15 works reasonably well for the NEXT loop.
         setActiveSequenceId(nextSeq.id);
       }
     }
@@ -86,7 +81,7 @@ function App() {
     const newSeq: Sequence = {
       id: Math.random().toString(36).substr(2, 9),
       name: `Pattern ${String.fromCharCode(65 + sequences.length)}`, // A, B, C...
-      tracks: [] // Start empty or maybe copy current settings? Empty is safer.
+      tracks: [] 
     };
     setSequences([...sequences, newSeq]);
     setActiveSequenceId(newSeq.id);
@@ -146,7 +141,11 @@ function App() {
         note: instDef?.defaultNote || 'C3' 
       })),
       volume: 0.8,
-      muted: false
+      muted: false,
+      pan: 0,
+      delay: 0,
+      reverb: 0,
+      distortion: 0
     };
     setTracks([...tracks, newTrack]);
     setShowAddMenu(false);
@@ -189,7 +188,11 @@ function App() {
             instrument: p.instrument as InstrumentType,
             steps: p.steps || Array(TOTAL_STEPS).fill(null).map(() => ({ active: false, note: 'C3' })),
             volume: p.volume ?? 0.8,
-            muted: p.muted ?? false
+            muted: p.muted ?? false,
+            pan: p.pan ?? 0,
+            delay: p.delay ?? 0,
+            reverb: p.reverb ?? 0,
+            distortion: p.distortion ?? 0
         }));
         setTracks(fullTracks);
     } else {
@@ -360,7 +363,7 @@ function App() {
           </div>
           <div className="p-4 bg-slate-900 border-t border-slate-800 text-xs text-slate-500">
             <p>Modifica il codice per aggiornare la UI (sperimentale).</p>
-            <p className="mt-1">Supporta <code>.note("...")</code> e <code>.struct("...")</code>.</p>
+            <p className="mt-1">Supporta <code>.note</code>, <code>.pan</code>, <code>.delay</code>, <code>.reverb</code>, <code>.distortion</code>.</p>
           </div>
         </div>
 
