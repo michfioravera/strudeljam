@@ -32,3 +32,9 @@ export interface Track {
   volume: number; // 0-1 linear
   muted: boolean;
 }
+
+export interface Sequence {
+  id: string;
+  name: string;
+  tracks: Track[];
+}

@@ -1,13 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Play, Square, Plus, Code, Mic, MicOff, X, Music } from 'lucide-react';
-import { Track, INSTRUMENTS, TOTAL_STEPS, InstrumentType } from './lib/constants';
+import { Track, INSTRUMENTS, TOTAL_STEPS, InstrumentType, Sequence } from './lib/constants';
 import { generateStrudelCode, parseStrudelCode } from './lib/strudel-gen';
 import { audioEngine } from './lib/audio-engine';
 import { TrackList } from './components/TrackList';
+import { SequenceList } from './components/SequenceList';
 import { clsx } from 'clsx';
 
 function App() {
-  const [tracks, setTracks] = useState<Track[]>([]);
+  // --- Sequence State ---
+  const [sequences, setSequences] = useState<Sequence[]>([
+    { id: 'seq-1', name: 'Pattern A', tracks: [] }
+  ]);
+  const [activeSequenceId, setActiveSequenceId] = useState<string>('seq-1');
+  const [playMode, setPlayMode] = useState<'single' | 'all'>('single');
+  
+  // Derived state for current tracks (to maintain compatibility with existing code structure)
+  const activeSequence = sequences.find(s => s.id === activeSequenceId) || sequences[0];
+  const tracks = activeSequence.tracks;
+
+  // --- Existing State ---
   const [isPlaying, setIsPlaying] = useState(false);
   const [bpm, setBpm] = useState(120);
   const [currentStep, setCurrentStep] = useState(-1);
@@ -16,21 +28,103 @@ function App() {
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [codeContent, setCodeContent] = useState('');
 
+  // Refs for playback logic
+  const sequencesRef = useRef(sequences);
+  const activeSeqIdRef = useRef(activeSequenceId);
+  const playModeRef = useRef(playMode);
+  
+  // Sync refs
+  useEffect(() => { sequencesRef.current = sequences; }, [sequences]);
+  useEffect(() => { activeSeqIdRef.current = activeSequenceId; }, [activeSequenceId]);
+  useEffect(() => { playModeRef.current = playMode; }, [playMode]);
+
   useEffect(() => {
     audioEngine.setBpm(bpm);
   }, [bpm]);
 
+  // --- Playback Logic with Sequence Chaining ---
+  const handleStepUpdate = useCallback((step: number) => {
+    setCurrentStep(step);
+
+    // Logic for "Play All" mode: Switch sequence at the end of the bar
+    if (step === TOTAL_STEPS - 1 && playModeRef.current === 'all') {
+      const currentSeqs = sequencesRef.current;
+      const currentId = activeSeqIdRef.current;
+      const currentIndex = currentSeqs.findIndex(s => s.id === currentId);
+      
+      if (currentIndex !== -1) {
+        const nextIndex = (currentIndex + 1) % currentSeqs.length;
+        const nextSeq = currentSeqs[nextIndex];
+        
+        // We schedule the switch. Since this is running inside Tone.Draw, 
+        // updating React state here triggers a re-render.
+        // For tighter timing, we might need to look ahead, but for this UI-driven app,
+        // switching state at step 15 works reasonably well for the NEXT loop.
+        setActiveSequenceId(nextSeq.id);
+      }
+    }
+  }, []);
+
   useEffect(() => {
-    audioEngine.updateSequence(tracks, (step) => {
-      setCurrentStep(step);
-    });
-  }, [tracks]);
+    // When tracks (of the active sequence) change, update the audio engine
+    audioEngine.updateSequence(tracks, handleStepUpdate);
+  }, [tracks, handleStepUpdate]);
 
   useEffect(() => {
     const code = generateStrudelCode(tracks, bpm);
     setCodeContent(code);
   }, [tracks, bpm]);
 
+  // --- Sequence Actions ---
+  const setTracks = (newTracks: Track[]) => {
+    setSequences(prev => prev.map(s => 
+      s.id === activeSequenceId ? { ...s, tracks: newTracks } : s
+    ));
+  };
+
+  const addSequence = () => {
+    const newSeq: Sequence = {
+      id: Math.random().toString(36).substr(2, 9),
+      name: `Pattern ${String.fromCharCode(65 + sequences.length)}`, // A, B, C...
+      tracks: [] // Start empty or maybe copy current settings? Empty is safer.
+    };
+    setSequences([...sequences, newSeq]);
+    setActiveSequenceId(newSeq.id);
+  };
+
+  const duplicateSequence = (id: string) => {
+    const seqToCopy = sequences.find(s => s.id === id);
+    if (seqToCopy) {
+      const newSeq: Sequence = {
+        ...seqToCopy,
+        id: Math.random().toString(36).substr(2, 9),
+        name: `${seqToCopy.name} (Copy)`,
+        // Deep copy tracks to avoid reference issues
+        tracks: seqToCopy.tracks.map(t => ({
+            ...t,
+            steps: t.steps.map(s => ({ ...s }))
+        }))
+      };
+      setSequences([...sequences, newSeq]);
+      setActiveSequenceId(newSeq.id);
+    }
+  };
+
+  const deleteSequence = (id: string) => {
+    if (sequences.length <= 1) return;
+    const newSeqs = sequences.filter(s => s.id !== id);
+    setSequences(newSeqs);
+    if (activeSequenceId === id) {
+      setActiveSequenceId(newSeqs[0].id);
+    }
+  };
+
+  const renameSequence = (id: string, newName: string) => {
+    setSequences(prev => prev.map(s => s.id === id ? { ...s, name: newName } : s));
+  };
+
+
+  // --- Existing Actions (Wrapped) ---
   const togglePlay = async () => {
     if (!isPlaying) {
       await audioEngine.start();
@@ -47,7 +141,6 @@ function App() {
     const newTrack: Track = {
       id: Math.random().toString(36).substr(2, 9),
       instrument: type,
-      // Initialize with objects containing note info
       steps: Array(TOTAL_STEPS).fill(null).map(() => ({ 
         active: false, 
         note: instDef?.defaultNote || 'C3' 
@@ -60,12 +153,14 @@ function App() {
   };
 
   const updateTrack = (id: string, updates: Partial<Track>) => {
-    setTracks(tracks.map(t => t.id === id ? { ...t, ...updates } : t));
+    const updatedTracks = tracks.map(t => t.id === id ? { ...t, ...updates } : t);
+    setTracks(updatedTracks);
   };
 
   const removeTrack = (id: string) => {
     audioEngine.cleanupTrack(id);
-    setTracks(tracks.filter(t => t.id !== id));
+    const updatedTracks = tracks.filter(t => t.id !== id);
+    setTracks(updatedTracks);
   };
 
   const handleRecord = async () => {
@@ -179,9 +274,24 @@ function App() {
         
         {/* Tracks Area */}
         <div className="flex-1 overflow-y-auto custom-scrollbar relative" onClick={() => {
-          // Close menus if clicking on background (optional, handled by local state usually)
+          // Close menus if clicking on background
         }}>
-          <div className="py-8">
+          <div className="py-6">
+            
+            {/* Sequence Bar */}
+            <SequenceList 
+                sequences={sequences}
+                activeSequenceId={activeSequenceId}
+                onSelect={setActiveSequenceId}
+                onCreate={addSequence}
+                onDuplicate={duplicateSequence}
+                onDelete={deleteSequence}
+                onRename={renameSequence}
+                playMode={playMode}
+                onTogglePlayMode={() => setPlayMode(prev => prev === 'single' ? 'all' : 'single')}
+            />
+
+            {/* Track List */}
             <TrackList 
               tracks={tracks} 
               currentStep={currentStep} 
