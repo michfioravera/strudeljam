@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Play, Square, Plus, Code, Download, Mic, MicOff, X, Music, Settings2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Play, Square, Plus, Code, Mic, MicOff, X, Music } from 'lucide-react';
 import { Track, INSTRUMENTS, TOTAL_STEPS, InstrumentType } from './lib/constants';
 import { generateStrudelCode, parseStrudelCode } from './lib/strudel-gen';
 import { audioEngine } from './lib/audio-engine';
@@ -16,19 +16,16 @@ function App() {
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [codeContent, setCodeContent] = useState('');
 
-  // Initialize Audio Engine
   useEffect(() => {
     audioEngine.setBpm(bpm);
   }, [bpm]);
 
   useEffect(() => {
-    // Sync engine with tracks
     audioEngine.updateSequence(tracks, (step) => {
       setCurrentStep(step);
     });
   }, [tracks]);
 
-  // Generate code when tracks change
   useEffect(() => {
     const code = generateStrudelCode(tracks, bpm);
     setCodeContent(code);
@@ -46,10 +43,15 @@ function App() {
   };
 
   const addTrack = (type: InstrumentType) => {
+    const instDef = INSTRUMENTS.find(i => i.id === type);
     const newTrack: Track = {
       id: Math.random().toString(36).substr(2, 9),
       instrument: type,
-      steps: Array(TOTAL_STEPS).fill(false),
+      // Initialize with objects containing note info
+      steps: Array(TOTAL_STEPS).fill(null).map(() => ({ 
+        active: false, 
+        note: instDef?.defaultNote || 'C3' 
+      })),
       volume: 0.8,
       muted: false
     };
@@ -70,8 +72,6 @@ function App() {
     if (isRecording) {
       const url = await audioEngine.stopRecording();
       setIsRecording(false);
-      
-      // Trigger download
       const a = document.createElement('a');
       a.href = url;
       a.download = `strudel-session-${new Date().toISOString().slice(0,19)}.webm`;
@@ -83,27 +83,16 @@ function App() {
   };
 
   const handleCodeChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newCode = e.target.value;
-    setCodeContent(newCode);
-    
-    // Try to parse back
-    const parsed = parseStrudelCode(newCode);
-    if (parsed) {
-       // Merge logic could be complex, here we just replace if valid to keep it simple
-       // But we need to be careful not to lose IDs if possible, or just reset.
-       // For this demo, let's just log it or maybe apply if user clicks "Apply"
-       // To keep it "simple", we won't auto-apply on every keystroke to avoid glitching.
-    }
+    setCodeContent(e.target.value);
   };
 
   const applyCode = () => {
     const parsed = parseStrudelCode(codeContent);
     if (parsed) {
-        // Convert Partial<Track> to Track (fill defaults)
         const fullTracks: Track[] = parsed.map(p => ({
             id: p.id || Math.random().toString(),
             instrument: p.instrument as InstrumentType,
-            steps: p.steps || Array(TOTAL_STEPS).fill(false),
+            steps: p.steps || Array(TOTAL_STEPS).fill(null).map(() => ({ active: false, note: 'C3' })),
             volume: p.volume ?? 0.8,
             muted: p.muted ?? false
         }));
@@ -189,7 +178,9 @@ function App() {
       <main className="flex h-[calc(100vh-64px)] relative overflow-hidden">
         
         {/* Tracks Area */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar relative">
+        <div className="flex-1 overflow-y-auto custom-scrollbar relative" onClick={() => {
+          // Close menus if clicking on background (optional, handled by local state usually)
+        }}>
           <div className="py-8">
             <TrackList 
               tracks={tracks} 
@@ -259,7 +250,7 @@ function App() {
           </div>
           <div className="p-4 bg-slate-900 border-t border-slate-800 text-xs text-slate-500">
             <p>Modifica il codice per aggiornare la UI (sperimentale).</p>
-            <p className="mt-1">Supporta solo il formato <code>stack(s("...").struct("..."))</code>.</p>
+            <p className="mt-1">Supporta <code>.note("...")</code> e <code>.struct("...")</code>.</p>
           </div>
         </div>
 
