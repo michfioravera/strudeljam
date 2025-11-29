@@ -1,79 +1,83 @@
-# StrudelJam 🎹
+# StrudelJam
 
-**Crea musica elettronica in tempo reale!**
+StrudelJam è un’applicazione web progettata per creare musica elettronica in tempo reale.
+Combina una UI semplice e visuale con la potenza del linguaggio Strudel, permettendo sia l’uso totalmente grafico sia la modifica opzionale del codice generato.
 
-StrudelJam è un’applicazione web progettata per la creazione di musica dal vivo. Utilizza la potenza del linguaggio **Strudel** in un’interfaccia visiva intuitiva.
+## Caratteristiche principali
 
----
+### UI Visuale
 
-## ✨ Caratteristiche principali
+- Aggiunta e rimozione immediata di tracce (Kick, Bass, Hi-Hat, Clap, Synth ecc.)
+- Step sequencer a 16 step per costruire pattern ritmici
+- Ogni step acceso può avere un parametro velocity regolabile da 1 a 100 tramite slider o menu elegante
+- Ogni traccia può essere silenziata, regolata nel volume o eliminata completamente
+- Interfaccia progettata per essere essenziale, chiara e immediata
 
-*   **Interfaccia Visuale**:
-    *   **Aggiungi/Rimuovi Tracce**: Aggiungi elementi come Kick, Bassi Psy, Hi-Hats, Clap e Sintetizzatori con un clic.
-    *   **Step Sequencer**: Una griglia a 16 step per disegnare ritmi.
-    *   **Controlli**: Modifica il volume e silenzia le singole tracce all’istante.
+### Sistema di Sequenze
 
-*   **Motore Audio**:
-    *   Riproduzione in tempo reale nel browser.
-    *   Sincronizzazione del BPM.
+- Ogni gruppo di tracce e pattern può essere salvato come sequenza
+- Le sequenze scorrono orizzontalmente
+- L’utente può:
+	- creare una nuova sequenza
+	- rinominarla
+	- duplicarla
+	- eliminarla
+	- aprirla e modificarla
+- Possibilità di riprodurre:
+	- una sola sequenza attiva
+	- tutte le sequenze in ordine, da sinistra verso destra
 
-*   **Connessione con il Codice (Dual Mode)**:
-    *   **Generazione in Tempo Reale**: Ogni pulsante che premuto aggiorna il pannello del codice Strudel.
-    *   **Pannello del Codice**: modifiche attuate nel pannello a comparsa aggiornano l'interfaccia.
+### Connessione con Strudel (Dual Mode)
 
-*   **Registrazione di sessione**:
-    *   Pulsante di registrazione integrato.
-    *   Pulsante per scaricare la sessione in formato .webm.
+- Ogni modifica nella UI aggiorna automaticamente il codice Strudel corrispondente
+- È possibile modificare manualmente il codice nel pannello laterale: la UI rifletterà le modifiche
+- Relazione 1–1 tra elementi grafici e codice generato
 
----
+### Motore Audio
 
-## 🚀 Installazione locale
+- Riproduzione in tempo reale nel browser
+- BPM sincronizzato
+- Velocity per step convertita in .gain() proporzionale nella generazione del codice Strudel
+- Step spenti rimangono invariati
+- Ampia libreria di suoni adatti anche a generi come psytrance
 
-Segui questi passaggi per eseguire il progetto sul tuo computer:
+### Registrazione delle sessioni
+
+- Pulsante per registrare in tempo reale
+- Possibilità di scaricare la sessione in formato .webm
+
+## Installazione locale
 
 ### Prerequisiti
-Assicurati di avere installato **Node.js** e un gestore di pacchetti come **Yarn** o **NPM**.
+
+- Node.js
+- Yarn o npm
 
 ### Passaggi
 
-1.  **Clona o Scarica**:  
-    Scarica i file del progetto nella cartella desiderata.
+1. Scarica o clona il repository.
+2. Installa le dipendenze:
+	```
+	yarn install
+	# oppure:
+	# npm install
+	```
+3. Avvia l’applicazione:
+	```
+	yarn run dev
+	# oppure:
+	# npm run dev
+	```
+4. Apri il browser su `http://localhost:5173` e inizia a suonare.
 
-2.  **Installa le Dipendenze**:  
-    Apri il terminale nella cartella del progetto ed esegui:
-    ```bash
-    yarn install
-    # oppure se usi npm:
-    # npm install
-    ```
+## Tecnologie utilizzate
 
-3.  **Avvia il Server di Sviluppo**:  
-    Avvia l’applicazione in locale:
-    ```bash
-    yarn run dev
-    # oppure se usi npm:
-    # npm run dev
-    ```
+- React
+- TypeScript
+- Tone.js
+- Tailwind CSS
+- Vite
 
-4.  **Inizia a Creare!**  
-    Apri il browser all’indirizzo indicato nel terminale (di solito `http://localhost:5173`) e comincia a fare musica.
+## Licenza
 
----
-
-## 🛠️ Tecnologie Utilizzate
-
-Questo progetto è stato realizzato con:
-
-*   **React**: Per un’interfaccia utente reattiva e modulare.
-*   **TypeScript**: Per un codice sicuro e manutenibile.
-*   **Tone.js**: Motore audio web che gestisce i suoni.
-*   **Tailwind CSS**: Per un design elegante, scuro e responsive.
-*   **Vite**: Per un ambiente di sviluppo ultrarapido.
-
----
-
-## 📄 Licenza
-
-Questo progetto è distribuito sotto licenza **MIT**. Sei libero di usarlo, modificarlo e ridistribuirlo.
-
----
+Questo progetto è distribuito sotto licenza MIT. Puoi usarlo, modificarlo e ridistribuirlo liberamente.
