@@ -9,9 +9,11 @@ export const generateStrudelCode = (tracks: Track[], bpm: number): string => {
     const instDef = INSTRUMENTS.find(i => i.id === track.instrument);
     if (!instDef) return null;
 
-    if (track.steps.every(s => !s.active)) return null;
+    const stepCount = track.stepCount || 16;
+    const activeSteps = track.steps.slice(0, stepCount).filter(s => s.active);
+    
+    if (activeSteps.length === 0) return null;
 
-    const activeSteps = track.steps.filter(s => s.active);
     const firstNote = activeSteps[0]?.note;
     const allSameNote = activeSteps.every(s => s.note === firstNote);
     
@@ -21,20 +23,23 @@ export const generateStrudelCode = (tracks: Track[], bpm: number): string => {
     let line = `  s("${instDef.strudelName}")`;
 
     // Note & Struct
+    // We use the stepCount to determine the cycle division
+    const patternChars = track.steps.slice(0, stepCount).map(s => s.active ? 'x' : '.');
+    const patternString = patternChars.join('');
+    
+    // Format pattern for readability (chunks of 4 if possible)
+    const formattedPattern = patternString.match(/.{1,4}/g)?.join('.') || patternString;
+
     if (allSameNote && firstNote) {
-      const pattern = track.steps.map(s => s.active ? 'x' : '.').join('');
-      const formattedPattern = pattern.match(/.{1,4}/g)?.join('.') || pattern;
-      
       line += `.note("${firstNote}")`;
       line += `.struct("${formattedPattern}")`;
     } else {
-      const notePattern = track.steps.map(s => s.active ? s.note : '~').join(' ');
+      // For melodic patterns, we map notes to the grid
+      const notePattern = track.steps.slice(0, stepCount).map(s => s.active ? s.note : '~').join(' ');
       line += `.note("${notePattern}")`;
     }
     
     // Gain / Velocity
-    // If all velocities are 100, use simple global gain.
-    // If velocities vary, create a gain pattern: (stepVel/100) * trackVol
     const trackVol = track.volume;
     
     if (allFullVelocity) {
@@ -42,12 +47,12 @@ export const generateStrudelCode = (tracks: Track[], bpm: number): string => {
             line += `.gain(${trackVol.toFixed(2)})`;
         }
     } else {
-        // Generate gain pattern
-        const gainPattern = track.steps.map(s => {
+        // Generate gain pattern matching the step count
+        const gainPattern = track.steps.slice(0, stepCount).map(s => {
             if (!s.active) return '~';
             const vel = (s.velocity ?? 100) / 100;
             const finalGain = vel * trackVol;
-            return parseFloat(finalGain.toFixed(2)); // Remove unnecessary decimals
+            return parseFloat(finalGain.toFixed(2));
         }).join(' ');
         line += `.gain("${gainPattern}")`;
     }
@@ -95,7 +100,9 @@ export const parseStrudelCode = (code: string): Partial<Track>[] | null => {
       const instDef = INSTRUMENTS.find(i => i.strudelName === strudelName);
       if (!instDef) return;
 
-      const steps: Step[] = Array(TOTAL_STEPS).fill(null).map(() => ({ 
+      // Default initialization
+      let stepCount = 16;
+      const steps: Step[] = Array(32).fill(null).map(() => ({ // Allocating max 32
         active: false, 
         note: instDef.defaultNote || 'C3',
         velocity: 100
@@ -108,54 +115,60 @@ export const parseStrudelCode = (code: string): Partial<Track>[] | null => {
       if (noteMatch) {
         const noteContent = noteMatch[1];
         if (noteContent.includes('~') || noteContent.includes(' ')) {
+           // It's a pattern like "C3 ~ D3 ~"
            const tokens = noteContent.trim().split(/\s+/);
-           for (let i = 0; i < Math.min(tokens.length, TOTAL_STEPS); i++) {
+           stepCount = tokens.length; // Inferred length
+           
+           for (let i = 0; i < tokens.length; i++) {
              if (tokens[i] !== '~' && tokens[i] !== '.') {
                steps[i] = { active: true, note: tokens[i], velocity: 100 };
              }
            }
         } else {
+           // Single note applied to a struct
            const fixedNote = noteContent;
            if (structMatch) {
-             const rawChars = structMatch[1].replace(/\s/g, '').split('');
-             for (let i = 0; i < Math.min(rawChars.length, TOTAL_STEPS); i++) {
-                if (rawChars[i] !== '.') {
+             const rawChars = structMatch[1].replace(/[\s.]/g, (m) => m === '.' ? '.' : ''); // Keep dots, remove spaces? No, struct("x.x.")
+             // Actually struct string: "x.x." -> length 4
+             const cleanStruct = structMatch[1].replace(/\s/g, '');
+             stepCount = cleanStruct.length;
+             
+             for (let i = 0; i < cleanStruct.length; i++) {
+                if (cleanStruct[i] !== '.') {
                   steps[i] = { active: true, note: fixedNote, velocity: 100 };
                 }
              }
            }
         }
       } else if (structMatch) {
-         const rawChars = structMatch[1].replace(/\s/g, '').split('');
-         for (let i = 0; i < Math.min(rawChars.length, TOTAL_STEPS); i++) {
-            if (rawChars[i] !== '.') {
+         const cleanStruct = structMatch[1].replace(/\s/g, '');
+         stepCount = cleanStruct.length;
+         for (let i = 0; i < cleanStruct.length; i++) {
+            if (cleanStruct[i] !== '.') {
               steps[i] = { active: true, note: instDef.defaultNote || 'C3', velocity: 100 };
             }
          }
       }
 
       // Volume & Velocity Parsing
-      // Check for gain pattern: .gain("0.5 0.8 ...")
       const gainPatternMatch = line.match(/\.gain\("([^"]+)"\)/);
       const gainSingleMatch = line.match(/\.gain\(([\d.-]+)\)/);
       
       let trackVolume = 1;
 
       if (gainPatternMatch) {
-         // If gain is a pattern, we assume track volume is 1 and values are velocities
-         // Or we could try to normalize. Let's assume track volume 1 for simplicity when parsing complex patterns.
-         trackVolume = 1;
          const tokens = gainPatternMatch[1].trim().split(/\s+/);
-         for (let i = 0; i < Math.min(tokens.length, TOTAL_STEPS); i++) {
-            if (tokens[i] !== '~' && steps[i].active) {
-                const gainVal = parseFloat(tokens[i]);
-                // Map gain 0-1 to velocity 1-100
-                steps[i].velocity = Math.min(100, Math.max(1, Math.round(gainVal * 100)));
-            }
+         // If gain pattern length differs from stepCount, it's complex. Assume they match.
+         if (tokens.length === stepCount) {
+             for (let i = 0; i < stepCount; i++) {
+                if (tokens[i] !== '~' && steps[i].active) {
+                    const gainVal = parseFloat(tokens[i]);
+                    steps[i].velocity = Math.min(100, Math.max(1, Math.round(gainVal * 100)));
+                }
+             }
          }
       } else if (gainSingleMatch) {
          trackVolume = parseFloat(gainSingleMatch[1]);
-         // Steps remain at default velocity 100
       }
 
       // Pan
@@ -175,7 +188,8 @@ export const parseStrudelCode = (code: string): Partial<Track>[] | null => {
       parsedTracks.push({
         id: Math.random().toString(36).substr(2, 9),
         instrument: instDef.id,
-        steps,
+        steps: steps.slice(0, 32), // Ensure we have buffer
+        stepCount: Math.max(1, Math.min(32, stepCount)),
         volume: trackVolume,
         muted: false,
         pan,

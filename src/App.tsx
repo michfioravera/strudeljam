@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Play, Square, Plus, Code, Mic, MicOff, X, Music } from 'lucide-react';
-import { Track, INSTRUMENTS, TOTAL_STEPS, InstrumentType, Sequence } from './lib/constants';
+import { Play, Square, Plus, Code, Mic, MicOff, X, Music, Settings } from 'lucide-react';
+import { Track, INSTRUMENTS, DEFAULT_STEP_COUNT, InstrumentType, Sequence } from './lib/constants';
 import { generateStrudelCode, parseStrudelCode } from './lib/strudel-gen';
 import { audioEngine } from './lib/audio-engine';
 import { TrackList } from './components/TrackList';
@@ -12,28 +12,35 @@ function App() {
   const [sequences, setSequences] = useState<Sequence[]>([
     { id: 'seq-1', name: 'Pattern A', tracks: [] }
   ]);
+  
   const [activeSequenceId, setActiveSequenceId] = useState<string>('seq-1');
+  const [pinnedSequenceId, setPinnedSequenceId] = useState<string | null>(null);
   const [playMode, setPlayMode] = useState<'single' | 'all'>('single');
   
-  // Derived state for current tracks
-  const activeSequence = sequences.find(s => s.id === activeSequenceId) || sequences[0];
-  const tracks = activeSequence.tracks;
+  const playbackSequence = sequences.find(s => s.id === activeSequenceId) || sequences[0];
+  const playbackTracks = playbackSequence.tracks;
+
+  const displayedSequenceId = pinnedSequenceId || activeSequenceId;
+  const displayedSequence = sequences.find(s => s.id === displayedSequenceId) || sequences[0];
+  const displayedTracks = displayedSequence.tracks;
 
   // --- Existing State ---
   const [isPlaying, setIsPlaying] = useState(false);
   const [bpm, setBpm] = useState(120);
-  const [currentStep, setCurrentStep] = useState(-1);
+  const [defaultStepCount, setDefaultStepCount] = useState(DEFAULT_STEP_COUNT);
+  
+  const [currentTrackSteps, setCurrentTrackSteps] = useState<Record<string, number>>({});
+  const [globalStep, setGlobalStep] = useState(-1);
+
   const [showCode, setShowCode] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [codeContent, setCodeContent] = useState('');
 
-  // Refs for playback logic
   const sequencesRef = useRef(sequences);
   const activeSeqIdRef = useRef(activeSequenceId);
   const playModeRef = useRef(playMode);
   
-  // Sync refs
   useEffect(() => { sequencesRef.current = sequences; }, [sequences]);
   useEffect(() => { activeSeqIdRef.current = activeSequenceId; }, [activeSequenceId]);
   useEffect(() => { playModeRef.current = playMode; }, [playMode]);
@@ -42,12 +49,16 @@ function App() {
     audioEngine.setBpm(bpm);
   }, [bpm]);
 
-  // --- Playback Logic with Sequence Chaining ---
-  const handleStepUpdate = useCallback((step: number) => {
-    setCurrentStep(step);
+  const handleTrackStep = useCallback((trackId: string, step: number) => {
+    setCurrentTrackSteps(prev => ({
+        ...prev,
+        [trackId]: step
+    }));
+  }, []);
 
-    // Logic for "Play All" mode: Switch sequence at the end of the bar
-    if (step === TOTAL_STEPS - 1 && playModeRef.current === 'all') {
+  const handleGlobalStep = useCallback((step: number) => {
+    setGlobalStep(step);
+    if (step === 15 && playModeRef.current === 'all') {
       const currentSeqs = sequencesRef.current;
       const currentId = activeSeqIdRef.current;
       const currentIndex = currentSeqs.findIndex(s => s.id === currentId);
@@ -61,30 +72,29 @@ function App() {
   }, []);
 
   useEffect(() => {
-    // When tracks (of the active sequence) change, update the audio engine
-    audioEngine.updateSequence(tracks, handleStepUpdate);
-  }, [tracks, handleStepUpdate]);
+    audioEngine.updateSequence(playbackTracks, handleTrackStep, handleGlobalStep);
+  }, [playbackTracks, handleTrackStep, handleGlobalStep]);
 
   useEffect(() => {
-    const code = generateStrudelCode(tracks, bpm);
+    const code = generateStrudelCode(displayedTracks, bpm);
     setCodeContent(code);
-  }, [tracks, bpm]);
+  }, [displayedTracks, bpm]);
 
-  // --- Sequence Actions ---
   const setTracks = (newTracks: Track[]) => {
     setSequences(prev => prev.map(s => 
-      s.id === activeSequenceId ? { ...s, tracks: newTracks } : s
+      s.id === displayedSequenceId ? { ...s, tracks: newTracks } : s
     ));
   };
 
   const addSequence = () => {
     const newSeq: Sequence = {
       id: Math.random().toString(36).substr(2, 9),
-      name: `Pattern ${String.fromCharCode(65 + sequences.length)}`, // A, B, C...
+      name: `Pattern ${String.fromCharCode(65 + sequences.length)}`,
       tracks: [] 
     };
     setSequences([...sequences, newSeq]);
     setActiveSequenceId(newSeq.id);
+    setPinnedSequenceId(null);
   };
 
   const duplicateSequence = (id: string) => {
@@ -94,7 +104,6 @@ function App() {
         ...seqToCopy,
         id: Math.random().toString(36).substr(2, 9),
         name: `${seqToCopy.name} (Copy)`,
-        // Deep copy tracks to avoid reference issues
         tracks: seqToCopy.tracks.map(t => ({
             ...t,
             steps: t.steps.map(s => ({ ...s }))
@@ -102,6 +111,7 @@ function App() {
       };
       setSequences([...sequences, newSeq]);
       setActiveSequenceId(newSeq.id);
+      setPinnedSequenceId(null);
     }
   };
 
@@ -112,14 +122,15 @@ function App() {
     if (activeSequenceId === id) {
       setActiveSequenceId(newSeqs[0].id);
     }
+    if (pinnedSequenceId === id) {
+      setPinnedSequenceId(null);
+    }
   };
 
   const renameSequence = (id: string, newName: string) => {
     setSequences(prev => prev.map(s => s.id === id ? { ...s, name: newName } : s));
   };
 
-
-  // --- Existing Actions (Wrapped) ---
   const togglePlay = async () => {
     if (!isPlaying) {
       await audioEngine.start();
@@ -127,7 +138,8 @@ function App() {
     } else {
       audioEngine.stop();
       setIsPlaying(false);
-      setCurrentStep(-1);
+      setGlobalStep(-1);
+      setCurrentTrackSteps({});
     }
   };
 
@@ -136,7 +148,8 @@ function App() {
     const newTrack: Track = {
       id: Math.random().toString(36).substr(2, 9),
       instrument: type,
-      steps: Array(TOTAL_STEPS).fill(null).map(() => ({ 
+      stepCount: defaultStepCount,
+      steps: Array(32).fill(null).map(() => ({ 
         active: false, 
         note: instDef?.defaultNote || 'C3',
         velocity: 100
@@ -148,18 +161,18 @@ function App() {
       reverb: 0,
       distortion: 0
     };
-    setTracks([...tracks, newTrack]);
+    setTracks([...displayedTracks, newTrack]);
     setShowAddMenu(false);
   };
 
   const updateTrack = (id: string, updates: Partial<Track>) => {
-    const updatedTracks = tracks.map(t => t.id === id ? { ...t, ...updates } : t);
+    const updatedTracks = displayedTracks.map(t => t.id === id ? { ...t, ...updates } : t);
     setTracks(updatedTracks);
   };
 
   const removeTrack = (id: string) => {
     audioEngine.cleanupTrack(id);
-    const updatedTracks = tracks.filter(t => t.id !== id);
+    const updatedTracks = displayedTracks.filter(t => t.id !== id);
     setTracks(updatedTracks);
   };
 
@@ -187,7 +200,8 @@ function App() {
         const fullTracks: Track[] = parsed.map(p => ({
             id: p.id || Math.random().toString(),
             instrument: p.instrument as InstrumentType,
-            steps: p.steps || Array(TOTAL_STEPS).fill(null).map(() => ({ active: false, note: 'C3', velocity: 100 })),
+            stepCount: p.stepCount || 16,
+            steps: p.steps || Array(32).fill(null).map(() => ({ active: false, note: 'C3', velocity: 100 })),
             volume: p.volume ?? 0.8,
             muted: p.muted ?? false,
             pan: p.pan ?? 0,
@@ -218,13 +232,26 @@ function App() {
 
           <div className="flex items-center gap-4">
             {/* BPM Control */}
-            <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
-              <span className="text-xs text-slate-400 font-bold tracking-wider">BPM</span>
+            <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 group hover:border-slate-600 transition-colors">
+              <span className="text-xs text-slate-400 font-bold tracking-wider group-hover:text-slate-300">BPM</span>
               <input 
                 type="number" 
                 value={bpm} 
                 onChange={(e) => setBpm(Math.max(40, Math.min(300, parseInt(e.target.value) || 120)))}
-                className="w-12 bg-transparent text-center font-mono focus:outline-none text-cyan-400"
+                className="w-12 bg-transparent text-center font-mono focus:outline-none text-cyan-400 font-bold"
+              />
+            </div>
+
+            {/* Default Steps Control */}
+            <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 group hover:border-slate-600 transition-colors" title="Default steps for new tracks">
+              <span className="text-xs text-slate-400 font-bold tracking-wider group-hover:text-slate-300">STEPS</span>
+              <input 
+                type="number" 
+                min="1"
+                max="32"
+                value={defaultStepCount} 
+                onChange={(e) => setDefaultStepCount(Math.max(1, Math.min(32, parseInt(e.target.value) || 16)))}
+                className="w-10 bg-transparent text-center font-mono focus:outline-none text-cyan-400 font-bold"
               />
             </div>
 
@@ -277,16 +304,15 @@ function App() {
       <main className="flex h-[calc(100vh-64px)] relative overflow-hidden">
         
         {/* Tracks Area */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar relative" onClick={() => {
-          // Close menus if clicking on background
-        }}>
-          <div className="py-6">
-            
-            {/* Sequence Bar */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar relative">
+          {/* Sticky Sequence Strip */}
+          <div className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur border-b border-slate-800 pt-4 pb-2 px-4 shadow-lg">
             <SequenceList 
                 sequences={sequences}
                 activeSequenceId={activeSequenceId}
+                pinnedSequenceId={pinnedSequenceId}
                 onSelect={setActiveSequenceId}
+                onPin={(id) => setPinnedSequenceId(prev => prev === id ? null : id)}
                 onCreate={addSequence}
                 onDuplicate={duplicateSequence}
                 onDelete={deleteSequence}
@@ -294,11 +320,13 @@ function App() {
                 playMode={playMode}
                 onTogglePlayMode={() => setPlayMode(prev => prev === 'single' ? 'all' : 'single')}
             />
+          </div>
 
-            {/* Track List */}
+          <div className="py-6 px-4">
+            {/* Track List - Shows DISPLAYED tracks */}
             <TrackList 
-              tracks={tracks} 
-              currentStep={currentStep} 
+              tracks={displayedTracks} 
+              currentTrackSteps={currentTrackSteps}
               onUpdateTrack={updateTrack}
               onRemoveTrack={removeTrack}
             />
@@ -308,17 +336,23 @@ function App() {
           <div className="fixed bottom-8 right-8 z-30">
              <div className="relative">
                 {showAddMenu && (
-                  <div className="absolute bottom-16 right-0 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl p-2 w-56 flex flex-col gap-1 animate-in slide-in-from-bottom-4 fade-in duration-200">
-                    <div className="px-3 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">Aggiungi Strumento</div>
-                    {INSTRUMENTS.map(inst => (
-                      <button
-                        key={inst.id}
-                        onClick={() => addTrack(inst.id)}
-                        className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-700 text-left transition-colors group"
-                      >
-                        <div className={clsx("w-2 h-2 rounded-full", inst.color)} />
-                        <span className="text-slate-200 group-hover:text-white">{inst.name}</span>
-                      </button>
+                  <div className="absolute bottom-16 right-0 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl p-2 w-64 max-h-[70vh] overflow-y-auto custom-scrollbar flex flex-col gap-1 animate-in slide-in-from-bottom-4 fade-in duration-200">
+                    {['Drums', 'Synths', 'Noise'].map(category => (
+                        <div key={category} className="mb-2">
+                            <div className="px-3 py-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider sticky top-0 bg-slate-800 z-10">
+                                {category}
+                            </div>
+                            {INSTRUMENTS.filter(i => i.category === category).map(inst => (
+                                <button
+                                    key={inst.id}
+                                    onClick={() => addTrack(inst.id)}
+                                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-700 text-left transition-colors group"
+                                >
+                                    <div className={clsx("w-3 h-3 rounded-full", inst.color)} />
+                                    <span className="text-slate-200 group-hover:text-white text-sm">{inst.name}</span>
+                                </button>
+                            ))}
+                        </div>
                     ))}
                   </div>
                 )}
@@ -344,6 +378,7 @@ function App() {
             <h2 className="font-mono text-sm text-cyan-400 font-bold flex items-center gap-2">
               <Code size={16} />
               STRUDEL CODE
+              {pinnedSequenceId && <span className="text-[10px] bg-cyan-900/50 text-cyan-300 px-1.5 py-0.5 rounded border border-cyan-700/50">PINNED VIEW</span>}
             </h2>
             <div className="flex gap-2">
                 <button onClick={applyCode} className="text-xs bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded text-slate-300 border border-slate-700">

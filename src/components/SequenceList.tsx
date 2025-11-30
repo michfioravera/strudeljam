@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Copy, Trash2, MoreVertical, Edit2, Check } from 'lucide-react';
+import { Plus, Copy, Trash2, Edit2, Pin, PinOff } from 'lucide-react';
 import { Sequence } from '../lib/constants';
 import { clsx } from 'clsx';
 
 interface SequenceListProps {
   sequences: Sequence[];
   activeSequenceId: string;
+  pinnedSequenceId: string | null;
   onSelect: (id: string) => void;
+  onPin: (id: string) => void;
   onCreate: () => void;
   onDuplicate: (id: string) => void;
   onDelete: (id: string) => void;
@@ -18,7 +20,9 @@ interface SequenceListProps {
 export const SequenceList: React.FC<SequenceListProps> = ({
   sequences,
   activeSequenceId,
+  pinnedSequenceId,
   onSelect,
+  onPin,
   onCreate,
   onDuplicate,
   onDelete,
@@ -55,7 +59,7 @@ export const SequenceList: React.FC<SequenceListProps> = ({
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto mb-6">
+    <div className="w-full max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-3 px-1">
         <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
           Sequenze
@@ -91,92 +95,127 @@ export const SequenceList: React.FC<SequenceListProps> = ({
       </div>
 
       <div className="flex gap-3 overflow-x-auto custom-scrollbar pb-2">
-        {sequences.map((seq) => (
-          <div
-            key={seq.id}
-            onClick={() => onSelect(seq.id)}
-            className={clsx(
-              "group relative flex-shrink-0 w-40 h-24 rounded-xl border-2 transition-all cursor-pointer overflow-hidden flex flex-col",
-              activeSequenceId === seq.id
-                ? "bg-slate-800 border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.15)]"
-                : "bg-slate-900 border-slate-700 hover:border-slate-600 opacity-70 hover:opacity-100"
-            )}
-          >
-            {/* Header */}
-            <div className={clsx(
-              "px-3 py-2 flex items-center justify-between border-b",
-              activeSequenceId === seq.id ? "border-slate-700 bg-slate-800" : "border-slate-800 bg-slate-900"
-            )}>
-              {editingId === seq.id ? (
-                <div className="flex items-center gap-1 w-full">
-                    <input
-                        ref={inputRef}
-                        value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        onBlur={saveName}
-                        onKeyDown={handleKeyDown}
-                        onClick={(e) => e.stopPropagation()}
-                        className="w-full bg-slate-950 text-white text-xs px-1 py-0.5 rounded border border-cyan-500 outline-none"
-                    />
-                </div>
-              ) : (
-                <>
-                    <span className="text-xs font-bold truncate text-slate-200" title={seq.name}>
-                        {seq.name}
-                    </span>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        {sequences.map((seq) => {
+            const isActive = activeSequenceId === seq.id;
+            const isPinned = pinnedSequenceId === seq.id;
+            const isDisplayed = isPinned || (!pinnedSequenceId && isActive);
+
+            return (
+              <div
+                key={seq.id}
+                onClick={() => onSelect(seq.id)}
+                className={clsx(
+                  "group relative flex-shrink-0 w-40 h-24 rounded-xl border-2 transition-all cursor-pointer overflow-hidden flex flex-col",
+                  // Border Logic: Pinned gets Blue, Active gets Green glow. If both, mix?
+                  // Let's prioritize Pinned color for border if pinned, but keep glow if active.
+                  isPinned 
+                    ? "border-cyan-400 bg-slate-800" 
+                    : isActive 
+                        ? "border-emerald-500/50 bg-slate-800 shadow-[0_0_15px_rgba(16,185,129,0.2)]" 
+                        : "bg-slate-900 border-slate-700 hover:border-slate-600 opacity-70 hover:opacity-100"
+                )}
+              >
+                {/* Header */}
+                <div className={clsx(
+                  "px-3 py-2 flex items-center justify-between border-b",
+                  isPinned ? "border-cyan-500/30 bg-cyan-950/30" : 
+                  isActive ? "border-emerald-500/20 bg-emerald-950/20" : "border-slate-800 bg-slate-900"
+                )}>
+                  {editingId === seq.id ? (
+                    <div className="flex items-center gap-1 w-full">
+                        <input
+                            ref={inputRef}
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            onBlur={saveName}
+                            onKeyDown={handleKeyDown}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-full bg-slate-950 text-white text-xs px-1 py-0.5 rounded border border-cyan-500 outline-none"
+                        />
+                    </div>
+                  ) : (
+                    <>
+                        <span className={clsx(
+                            "text-xs font-bold truncate",
+                            isPinned ? "text-cyan-300" : isActive ? "text-emerald-300" : "text-slate-200"
+                        )} title={seq.name}>
+                            {seq.name}
+                        </span>
+                        
+                        {/* Pin Toggle */}
                         <button 
-                            onClick={(e) => startEditing(seq, e)}
-                            className="p-1 hover:text-cyan-400 text-slate-500"
+                            onClick={(e) => { e.stopPropagation(); onPin(seq.id); }}
+                            className={clsx(
+                                "p-1 rounded transition-colors",
+                                isPinned ? "text-cyan-400 hover:text-cyan-300 bg-cyan-900/50" : "text-slate-600 hover:text-cyan-400 opacity-0 group-hover:opacity-100"
+                            )}
+                            title={isPinned ? "Unpin View" : "Pin View for Editing"}
                         >
-                            <Edit2 size={10} />
+                            {isPinned ? <PinOff size={12} /> : <Pin size={12} />}
                         </button>
-                    </div>
-                </>
-              )}
-            </div>
+                    </>
+                  )}
+                </div>
 
-            {/* Mini Preview (Visual representation of tracks) */}
-            <div className="flex-1 p-2 flex flex-col gap-1 justify-center">
-                {seq.tracks.length > 0 ? (
-                    <div className="flex gap-0.5 h-full items-end opacity-50">
-                        {Array.from({ length: 16 }).map((_, i) => {
-                            const activeCount = seq.tracks.filter(t => t.steps[i].active).length;
-                            return (
-                                <div 
-                                    key={i} 
-                                    className="flex-1 bg-cyan-400 rounded-sm"
-                                    style={{ height: `${Math.min(100, activeCount * 20)}%` }}
-                                />
-                            )
-                        })}
-                    </div>
-                ) : (
-                    <span className="text-[10px] text-slate-600 text-center">Empty</span>
-                )}
-            </div>
+                {/* Mini Preview */}
+                <div className="flex-1 p-2 flex flex-col gap-1 justify-center relative">
+                    {/* Playback Indicator Overlay */}
+                    {isActive && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <div className="w-full h-full bg-emerald-500/5 animate-pulse" />
+                        </div>
+                    )}
 
-            {/* Actions Overlay */}
-            <div className="absolute bottom-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900/80 rounded p-0.5 backdrop-blur-sm">
-                <button 
-                    onClick={(e) => { e.stopPropagation(); onDuplicate(seq.id); }}
-                    className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded"
-                    title="Duplica"
-                >
-                    <Copy size={12} />
-                </button>
-                {sequences.length > 1 && (
+                    {seq.tracks.length > 0 ? (
+                        <div className="flex gap-0.5 h-full items-end opacity-50">
+                            {Array.from({ length: 16 }).map((_, i) => {
+                                const activeCount = seq.tracks.filter(t => t.steps[i].active).length;
+                                return (
+                                    <div 
+                                        key={i} 
+                                        className={clsx(
+                                            "flex-1 rounded-sm",
+                                            isPinned ? "bg-cyan-400" : isActive ? "bg-emerald-400" : "bg-slate-500"
+                                        )}
+                                        style={{ height: `${Math.min(100, activeCount * 20)}%` }}
+                                    />
+                                )
+                            })}
+                        </div>
+                    ) : (
+                        <span className="text-[10px] text-slate-600 text-center">Empty</span>
+                    )}
+                </div>
+
+                {/* Actions Overlay */}
+                <div className="absolute bottom-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900/90 rounded p-0.5 backdrop-blur-sm border border-slate-800">
                     <button 
-                        onClick={(e) => { e.stopPropagation(); onDelete(seq.id); }}
-                        className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded"
-                        title="Elimina"
+                        onClick={(e) => startEditing(seq, e)}
+                        className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded"
+                        title="Rinomina"
                     >
-                        <Trash2 size={12} />
+                        <Edit2 size={12} />
                     </button>
-                )}
-            </div>
-          </div>
-        ))}
+                    <button 
+                        onClick={(e) => { e.stopPropagation(); onDuplicate(seq.id); }}
+                        className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded"
+                        title="Duplica"
+                    >
+                        <Copy size={12} />
+                    </button>
+                    {sequences.length > 1 && (
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); onDelete(seq.id); }}
+                            className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded"
+                            title="Elimina"
+                        >
+                            <Trash2 size={12} />
+                        </button>
+                    )}
+                </div>
+              </div>
+            );
+        })}
 
         {/* Add Button */}
         <button
