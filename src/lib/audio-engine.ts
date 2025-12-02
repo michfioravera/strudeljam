@@ -149,7 +149,7 @@ class AudioEngine {
   private currentTracks: Map<string, Track> = new Map();
   private polyphonyManager: PolyphonyManager = new PolyphonyManager();
   private gainLimiter: GainLimiter = new GainLimiter();
-  
+
   private masterLoop: Tone.Loop | null = null;
   private masterLimiter: Tone.Limiter; // Global limiter
   private recorder: Tone.Recorder;
@@ -161,13 +161,13 @@ class AudioEngine {
   constructor() {
     // Setup audio context with optimized settings
     this.setupAudioContext();
-    
+
     // Master limiter (-3dB to prevent clipping)
     this.masterLimiter = new Tone.Limiter(-3).toDestination();
-    
+
     this.recorder = new Tone.Recorder();
     this.masterLimiter.connect(this.recorder);
-    
+
     // Page visibility listener (pause when tab loses focus)
     this.pageVisibilityHandler = this.handlePageVisibilityChange.bind(this);
     document.addEventListener('visibilitychange', this.pageVisibilityHandler);
@@ -176,7 +176,7 @@ class AudioEngine {
   private setupAudioContext(): void {
     // Optimize Tone.js context
     const context = Tone.getContext();
-    
+
     // Attempt to set buffer size (may not work in all browsers)
     if ('createScriptProcessor' in context) {
       try {
@@ -211,10 +211,10 @@ class AudioEngine {
     } catch (e) {
       if (DEBUG.ENABLED) console.warn('[AUDIO] Could not resume context:', e);
     }
-    
+
     // Now start Tone (this should work after context resume)
     await Tone.start();
-    
+
     // Ensure Transport is in a fresh state
     if (Tone.Transport.state !== 'started') {
       // Reset position to 0 to start from beginning
@@ -290,7 +290,7 @@ class AudioEngine {
    */
   public hardStop(): void {
     if (DEBUG.ENABLED) console.log('[AUDIO] HARD STOP triggered');
-    
+
     // Stop all parts
     this.parts.forEach(part => {
       part.stop();
@@ -308,7 +308,7 @@ class AudioEngine {
     // Stop transport but DON'T cancel (that breaks future playback)
     Tone.Transport.stop();
     Tone.Transport.position = 0; // Reset position to start
-    
+
     // Dispose of master loop so it gets recreated fresh
     if (this.masterLoop) {
       this.masterLoop.dispose();
@@ -363,46 +363,46 @@ class AudioEngine {
         });
       case 'perc':
         return new Tone.MembraneSynth();
-      
+
       // Synths with reduced polyphony
       case 'sine':
-        return new Tone.PolySynth(Tone.Synth, { 
+        return new Tone.PolySynth(Tone.Synth, {
           oscillator: { type: 'sine' },
           maxVoices: POLYPHONY_CONFIG.MAX_VOICES_PER_TRACK
         });
       case 'triangle':
-        return new Tone.PolySynth(Tone.Synth, { 
+        return new Tone.PolySynth(Tone.Synth, {
           oscillator: { type: 'triangle' },
           maxVoices: POLYPHONY_CONFIG.MAX_VOICES_PER_TRACK
         });
       case 'square':
-        return new Tone.PolySynth(Tone.Synth, { 
+        return new Tone.PolySynth(Tone.Synth, {
           oscillator: { type: 'square' },
           maxVoices: POLYPHONY_CONFIG.MAX_VOICES_PER_TRACK
         });
       case 'sawtooth':
-        return new Tone.PolySynth(Tone.Synth, { 
+        return new Tone.PolySynth(Tone.Synth, {
           oscillator: { type: 'sawtooth' },
           maxVoices: POLYPHONY_CONFIG.MAX_VOICES_PER_TRACK
         });
-      
+
       // Noise (keep reduced)
       case 'white':
-        return new Tone.NoiseSynth({ 
+        return new Tone.NoiseSynth({
           noise: { type: 'white' },
           envelope: { attack: 0.001, decay: 0.2, sustain: 0, release: 0.1 }
         });
       case 'pink':
-        return new Tone.NoiseSynth({ 
+        return new Tone.NoiseSynth({
           noise: { type: 'pink' },
           envelope: { attack: 0.001, decay: 0.2, sustain: 0, release: 0.1 }
         });
       case 'brown':
-        return new Tone.NoiseSynth({ 
+        return new Tone.NoiseSynth({
           noise: { type: 'brown' },
           envelope: { attack: 0.001, decay: 0.2, sustain: 0, release: 0.1 }
         });
-      
+
       default:
         return new Tone.Synth({
           maxVoices: POLYPHONY_CONFIG.MAX_VOICES_PER_TRACK
@@ -424,10 +424,10 @@ class AudioEngine {
       } catch (e) {
         if (DEBUG.ENABLED) console.warn(`[AUDIO] Error disposing old synth: ${e}`);
       }
-      
+
       const newSynth = this.createSynth(type);
       newSynth.connect(channel.filter); // Connect to filter, not directly to distortion
-      
+
       channel.synth = newSynth;
       channel.type = type;
       return channel;
@@ -439,7 +439,7 @@ class AudioEngine {
 
     // Create new channel with all effects
     const synth = this.createSynth(type);
-    
+
     // Safe mode filter (LP) - reduces aliasing and high-freq noise
     const filter = new Tone.Filter({
       frequency: SAFE_MODE_CONFIG.FILTER_FREQ,
@@ -451,11 +451,11 @@ class AudioEngine {
     const delay = new Tone.FeedbackDelay("8n", 0.5);
     delay.wet.value = 0;
     delay.maxDelay = 1; // Cap max delay time
-    
+
     const reverb = new Tone.Reverb(1.2); // Reduced from 1.5
     reverb.wet.value = 0;
     reverb.decay = 2.0; // Reduced from 3.0 to prevent buildup
-    
+
     const panner = new Tone.Panner(0);
     const volume = new Tone.Volume(0);
 
@@ -480,14 +480,14 @@ class AudioEngine {
       }
     }
 
-    const newChannel: ChannelStrip = { 
-      type, 
-      synth, 
+    const newChannel: ChannelStrip = {
+      type,
+      synth,
       filter,
-      distortion, 
-      delay, 
-      reverb, 
-      panner, 
+      distortion,
+      delay,
+      reverb,
+      panner,
       volume,
       voiceCount: 0
     };
@@ -501,7 +501,7 @@ class AudioEngine {
   }
 
   public updateSequence(
-    tracks: Track[], 
+    tracks: Track[],
     onStep: (trackId: string, step: number) => void,
     onGlobalStep: (step: number) => void
   ): void {
@@ -528,15 +528,15 @@ class AudioEngine {
     tracks.forEach(track => {
       // --- A. Channel Strip Updates (Real-time, smooth, no glitches) ---
       const ch = this.getChannel(track.id, track.instrument);
-      
+
       // Apply gain normalization
       const scaledGain = this.gainLimiter.getScaledGain(track.id);
       const volDb = track.volume <= 0.001 ? -100 : 20 * Math.log10(track.volume * scaledGain);
       ch.volume.volume.rampTo(volDb, 0.05); // Smooth ramp
-      
+
       // Pan
       ch.panner.pan.rampTo(track.pan, 0.05);
-      
+
       // Effects with clamping
       ch.distortion.distortion = Math.min(0.8, 0.4 + (track.distortion / 200));
       ch.distortion.wet.value = Math.min(0.8, track.distortion / 100);
@@ -600,7 +600,7 @@ class AudioEngine {
           if (event.stepIdx === 0 && DEBUG.ENABLED) {
             console.log(`[AUDIO CALLBACK] Step 0 callback fired at Transport time ${time}`);
           }
-          
+
           // DYNAMIC CALLBACK: Reads latest data from currentTracks
           const currentTrack = this.currentTracks.get(track.id);
           if (!currentTrack || currentTrack.muted) {
@@ -617,17 +617,17 @@ class AudioEngine {
 
           // Audio Trigger with Polyphony Check
           const step = currentTrack.steps[event.stepIdx];
-          
+
           if (event.stepIdx === 0 && DEBUG.ENABLED) {
             console.log(`[AUDIO STEP 0] stepIdx=0, steps array length=${currentTrack.steps.length}, step exists=${!!step}, step=${JSON.stringify(step)}`);
           }
-          
+
           if (step && step.active) {
             if (DEBUG.ENABLED) console.log(`[AUDIO TRIGGER] Step ${event.stepIdx}: Note=${step.note}, Velocity=${step.velocity}`);
 
             const instDef = INSTRUMENTS.find(i => i.id === currentTrack.instrument);
             const channel = this.channels.get(track.id);
-            
+
             if (channel && instDef) {
               // Check if we can add another voice
               if (!this.polyphonyManager.incrementVoice(track.id)) {
@@ -642,7 +642,7 @@ class AudioEngine {
               // Trigger audio with error handling
               try {
                 if (DEBUG.ENABLED) console.log(`[AUDIO TRIGGER] Playing Note: ${noteToPlay}, Track: ${track.instrument}, Velocity: ${velocity.toFixed(2)}`);
-                
+
                 const synth = channel.synth;
                 if (synth instanceof Tone.MembraneSynth || synth instanceof Tone.Synth) {
                   synth.triggerAttackRelease(noteToPlay, '8n', time, velocity);
@@ -674,25 +674,59 @@ class AudioEngine {
 
         part.loop = true;
         part.loopEnd = "1m";
-        
-        // Start the part at position 0
-        // If Transport is already running, the part will sync automatically
-        part.start(0);
-        
-        // If Transport is already running, we need to manually advance the part
-        // to match the current Transport position
-        if (this.isRunning && Tone.Transport.state === 'started') {
-          const currentPos = Tone.Transport.position as number;
-          if (currentPos > 0) {
-            if (DEBUG.ENABLED) console.log(`[AUDIO] Part ${track.id} started at Transport position ${currentPos.toFixed(3)}`);
+
+
+        // Decide how to start the part so it stays in sync with Transport
+        try {
+          if (Tone.Transport.state === 'started' && this.isRunning) {
+            // Start the new part immediately but aligned to current Transport position.
+            // "+0" schedules the part at the next tick in Transport time and keeps it synced.
+            part.start("+0");
+
+            // If there was an existing part, stop & dispose it slightly after the new part is scheduled
+            // to avoid killing the sound mid-buffer and to ensure continuity.
+            if (existingPart) {
+              try {
+                // stop the old part on the next tick (small offset)
+                existingPart.stop("+0.02");
+                // dispose after a short timeout to allow any in-flight callbacks to complete
+                setTimeout(() => {
+                  try { existingPart.dispose(); } catch (e) { if (DEBUG.ENABLED) console.warn(`[AUDIO] Error disposing old part after hot-swap: ${e}`); }
+                }, 100);
+              } catch (e) {
+                if (DEBUG.ENABLED) console.warn(`[AUDIO] Could not gracefully stop existing part: ${e}`);
+                try { existingPart.dispose(); } catch (e) { /* swallow */ }
+              }
+            }
+          } else {
+            // Transport not running: safe to start at 0 (or leave stopped until Transport starts)
+            part.start(0);
+            if (existingPart) {
+              try {
+                existingPart.stop();
+                existingPart.dispose();
+              } catch (e) {
+                if (DEBUG.ENABLED) console.warn(`[AUDIO] Error disposing existing part: ${e}`);
+              }
+            }
           }
+        } catch (e) {
+          if (DEBUG.ENABLED) console.warn(`[AUDIO] Error while starting part: ${e}`);
+          // Fallback: ensure part is at least created and registered
+          try { part.start(0); } catch (err) { if (DEBUG.ENABLED) console.warn('[AUDIO] Fallback start failed:', err); }
         }
-        
+
+        // register part and state after start to ensure any callbacks see it as active
         this.parts.set(track.id, part);
         this.partStates.set(track.id, { stepCount });
-        
+
+        if (DEBUG.ENABLED) console.log(`[AUDIO] Part created for track ${track.id} with ${stepCount} steps (started ${Tone.Transport.state === 'started' && this.isRunning ? 'synced (+0)' : 'at 0'})`);
+
+        this.parts.set(track.id, part);
+        this.partStates.set(track.id, { stepCount });
+
         if (DEBUG.ENABLED) console.log(`[AUDIO] Part created for track ${track.id} with ${stepCount} steps`);
-        
+
         activePartsCount++;
       } else {
         activePartsCount++;
@@ -814,7 +848,7 @@ class AudioEngine {
     this.parts.clear();
     this.currentTracks.clear();
   }
-  
+
   public async startRecording(): Promise<void> {
     if (Tone.context.state !== 'running') {
       await Tone.start();
