@@ -247,9 +247,9 @@ export const TrackList: React.FC<TrackListProps> = ({ tracks, currentTrackSteps,
                                 className={clsx(
                                     "w-full h-8 md:h-12 rounded-md transition-all duration-75 border border-slate-700/50 relative overflow-hidden flex items-center justify-center group",
                                     step.active 
-                                    ? clsx(instDef?.color, "shadow-[0_0_10px_rgba(0,0,0,0.3)] brightness-110") 
-                                    : "bg-slate-900/50 hover:bg-slate-700",
-                                    idx % 4 === 0 && !step.active && "bg-slate-800",
+                                    ? clsx("bg-green-600", "shadow-[0_0_10px_rgba(0,0,0,0.3)] brightness-110") 
+                                    : clsx(instDef?.color, "hover:opacity-75"),
+                                    idx % 4 === 0 && !step.active && "opacity-50",
                                     currentStep === idx && "ring-2 ring-white ring-opacity-50 z-10"
                                 )}
                                 >

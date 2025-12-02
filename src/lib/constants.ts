@@ -1,5 +1,5 @@
 export const TOTAL_STEPS = 16;
-export const DEFAULT_STEP_COUNT = 16;
+export const DEFAULT_STEP_COUNT = 4;
 
 export type InstrumentType = 
   | 'kick' | 'snare' | 'rim' | 'hat' | 'open_hat' | 'tom' | 'ride' | 'crash' | 'clap' | 'perc'

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Play, Square, Plus, Code, Mic, MicOff, X, Music, Settings, ChevronUp, ChevronDown } from 'lucide-react';
+import { Play, Square, Plus, Code, Mic, MicOff, X, Music } from 'lucide-react';
 import { Track, INSTRUMENTS, DEFAULT_STEP_COUNT, InstrumentType, Sequence } from './lib/constants';
 import { generateStrudelCode, parseStrudelCode } from './lib/strudel-gen';
 import { audioEngine } from './lib/audio-engine';
@@ -13,15 +13,13 @@ const NumberInput = ({
   onChange, 
   min = 0, 
   max = 100, 
-  label = '',
-  step = 1
+  label = ''
 }: { 
   value: number, 
   onChange: (val: number) => void, 
   min?: number, 
   max?: number,
-  label?: string,
-  step?: number
+  label?: string
 }) => {
   const [localValue, setLocalValue] = useState<string>(value.toString());
 
@@ -107,6 +105,13 @@ function App() {
   useEffect(() => { sequencesRef.current = sequences; }, [sequences]);
   useEffect(() => { activeSeqIdRef.current = activeSequenceId; }, [activeSequenceId]);
   useEffect(() => { playModeRef.current = playMode; }, [playMode]);
+
+  // Cleanup audio engine on unmount
+  useEffect(() => {
+    return () => {
+      audioEngine.dispose();
+    };
+  }, []);
 
   useEffect(() => {
     audioEngine.setBpm(bpm);
@@ -196,6 +201,10 @@ function App() {
 
   const togglePlay = async () => {
     if (!isPlaying) {
+      // Resume AudioContext if suspended (required by modern browsers)
+      if ((window as any).Tone?.Destination?.context?.state === 'suspended') {
+        await (window as any).Tone.Destination.context.resume();
+      }
       await audioEngine.start();
       setIsPlaying(true);
     } else {
