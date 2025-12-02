@@ -1,11 +1,74 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Play, Square, Plus, Code, Mic, MicOff, X, Music, Settings } from 'lucide-react';
+import { Play, Square, Plus, Code, Mic, MicOff, X, Music, Settings, ChevronUp, ChevronDown } from 'lucide-react';
 import { Track, INSTRUMENTS, DEFAULT_STEP_COUNT, InstrumentType, Sequence } from './lib/constants';
 import { generateStrudelCode, parseStrudelCode } from './lib/strudel-gen';
 import { audioEngine } from './lib/audio-engine';
 import { TrackList } from './components/TrackList';
 import { SequenceList } from './components/SequenceList';
 import { clsx } from 'clsx';
+
+// NumberInput Component with better UX - waits for blur or Enter to commit
+const NumberInput = ({ 
+  value, 
+  onChange, 
+  min = 0, 
+  max = 100, 
+  label = '',
+  step = 1
+}: { 
+  value: number, 
+  onChange: (val: number) => void, 
+  min?: number, 
+  max?: number,
+  label?: string,
+  step?: number
+}) => {
+  const [localValue, setLocalValue] = useState<string>(value.toString());
+
+  useEffect(() => {
+    setLocalValue(value.toString());
+  }, [value]);
+
+  const commit = (val: string) => {
+    let numVal = parseInt(val);
+    if (isNaN(numVal)) numVal = value;
+    numVal = Math.max(min, Math.min(max, numVal));
+    setLocalValue(numVal.toString());
+    if (numVal !== value) {
+      onChange(numVal);
+    }
+  };
+
+  const handleBlur = () => {
+    commit(localValue);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      commit(localValue);
+      (e.target as HTMLInputElement).blur();
+    } else if (e.key === 'Escape') {
+      setLocalValue(value.toString());
+      (e.target as HTMLInputElement).blur();
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 group hover:border-slate-600 transition-colors">
+      <span className="text-xs text-slate-400 font-bold tracking-wider group-hover:text-slate-300 whitespace-nowrap">{label}</span>
+      <input 
+        type="number" 
+        value={localValue}
+        onChange={(e) => setLocalValue(e.target.value)}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
+        className="w-12 bg-transparent text-center font-mono focus:outline-none text-cyan-400 font-bold"
+        min={min}
+        max={max}
+      />
+    </div>
+  );
+};
 
 function App() {
   // --- Sequence State ---
@@ -232,28 +295,22 @@ function App() {
 
           <div className="flex items-center gap-4">
             {/* BPM Control */}
-            <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 group hover:border-slate-600 transition-colors">
-              <span className="text-xs text-slate-400 font-bold tracking-wider group-hover:text-slate-300">BPM</span>
-              <input 
-                type="number" 
-                value={bpm} 
-                onChange={(e) => setBpm(Math.max(40, Math.min(300, parseInt(e.target.value) || 120)))}
-                className="w-12 bg-transparent text-center font-mono focus:outline-none text-cyan-400 font-bold"
-              />
-            </div>
+            <NumberInput 
+              value={bpm}
+              onChange={setBpm}
+              min={40}
+              max={300}
+              label="BPM"
+            />
 
             {/* Default Steps Control */}
-            <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 group hover:border-slate-600 transition-colors" title="Default steps for new tracks">
-              <span className="text-xs text-slate-400 font-bold tracking-wider group-hover:text-slate-300">STEPS</span>
-              <input 
-                type="number" 
-                min="1"
-                max="32"
-                value={defaultStepCount} 
-                onChange={(e) => setDefaultStepCount(Math.max(1, Math.min(32, parseInt(e.target.value) || 16)))}
-                className="w-10 bg-transparent text-center font-mono focus:outline-none text-cyan-400 font-bold"
-              />
-            </div>
+            <NumberInput 
+              value={defaultStepCount}
+              onChange={setDefaultStepCount}
+              min={1}
+              max={32}
+              label="STEPS"
+            />
 
             {/* Transport */}
             <button 
