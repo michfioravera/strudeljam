@@ -224,7 +224,7 @@ class AudioEngine {
       if (DEBUG.ENABLED) console.log('[AUDIO] Engine started');
 
       // Debug: play short test tones to verify audio output chain is audible
-      try {
+      /*try {
         if (DEBUG.ENABLED && !this.playedTestTone) {
           const now = Tone.now();
 
@@ -246,7 +246,7 @@ class AudioEngine {
         }
       } catch (e) {
         if (DEBUG.ENABLED) console.warn('[AUDIO] Could not play debug test tones:', e);
-      }
+      }*/
     }
 
     // Restart any existing parts (they may have been stopped by stop())
