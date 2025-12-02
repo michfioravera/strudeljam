@@ -327,8 +327,8 @@ function App() {
               className={clsx(
                 "flex items-center gap-2 px-4 py-1.5 rounded-lg font-medium transition-all shadow-lg",
                 isPlaying 
-                  ? "bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/50" 
-                  : "bg-cyan-500 text-slate-900 hover:bg-cyan-400 shadow-cyan-500/20"
+                  ? "bg-trackActive/10 text-cyan-400 hover:bg-trackActive/20 border border-cyan-500/50" 
+                  : "bg-cyan-500 text-slate-900 hover:bg-cyan-400 shadow-cyan-500/20 animate-pulse"
               )}
             >
               {isPlaying ? <Square size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}

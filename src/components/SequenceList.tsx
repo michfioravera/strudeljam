@@ -105,13 +105,13 @@ export const SequenceList: React.FC<SequenceListProps> = ({
                 key={seq.id}
                 onClick={() => onSelect(seq.id)}
                 className={clsx(
-                  "group relative flex-shrink-0 w-40 h-24 rounded-xl border-2 transition-all cursor-pointer overflow-hidden flex flex-col",
+                  "group relative flex-shrink-0 w-40 h-24 rounded-xl border-1 transition-all cursor-pointer overflow-hidden flex flex-col",
                   // Border Logic: Pinned gets Blue, Active gets Green glow. If both, mix?
                   // Let's prioritize Pinned color for border if pinned, but keep glow if active.
                   isPinned 
                     ? "border-cyan-400 bg-slate-800" 
                     : isActive 
-                        ? "border-emerald-500/50 bg-slate-800 shadow-[0_0_15px_rgba(16,185,129,0.2)]" 
+                        ? "bborder-cyan-500/50 bg-slate-800 shadow-[0_0_15px_rgba(16,185,129,0.2)]" 
                         : "bg-slate-900 border-slate-700 hover:border-slate-600 opacity-70 hover:opacity-100"
                 )}
               >
@@ -119,7 +119,7 @@ export const SequenceList: React.FC<SequenceListProps> = ({
                 <div className={clsx(
                   "px-3 py-2 flex items-center justify-between border-b",
                   isPinned ? "border-cyan-500/30 bg-cyan-950/30" : 
-                  isActive ? "border-emerald-500/20 bg-emerald-950/20" : "border-slate-800 bg-slate-900"
+                  isActive ? "border-cyan-500/20 bg-cyan-950/20" : "border-slate-800 bg-slate-900"
                 )}>
                   {editingId === seq.id ? (
                     <div className="flex items-center gap-1 w-full">
@@ -137,7 +137,7 @@ export const SequenceList: React.FC<SequenceListProps> = ({
                     <>
                         <span className={clsx(
                             "text-xs font-bold truncate",
-                            isPinned ? "text-cyan-300" : isActive ? "text-emerald-300" : "text-slate-200"
+                            isPinned ? "text-cyan-300" : isActive ? "text-cyan-300" : "text-slate-200"
                         )} title={seq.name}>
                             {seq.name}
                         </span>
@@ -162,7 +162,7 @@ export const SequenceList: React.FC<SequenceListProps> = ({
                     {/* Playback Indicator Overlay */}
                     {isActive && (
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <div className="w-full h-full bg-emerald-500/5 animate-pulse" />
+                            <div className="w-full h-full bg-cyan-500/5 animate-pulse" />
                         </div>
                     )}
 
@@ -175,7 +175,7 @@ export const SequenceList: React.FC<SequenceListProps> = ({
                                         key={i} 
                                         className={clsx(
                                             "flex-1 rounded-sm",
-                                            isPinned ? "bg-cyan-400" : isActive ? "bg-emerald-400" : "bg-slate-500"
+                                            isPinned ? "bg-cyan-400" : isActive ? "bg-cyan-400" : "bg-slate-500"
                                         )}
                                         style={{ height: `${Math.min(100, activeCount * 20)}%` }}
                                     />

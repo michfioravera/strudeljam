@@ -243,24 +243,33 @@ export const TrackList: React.FC<TrackListProps> = ({ tracks, currentTrackSteps,
                             <div key={idx} className="relative">
                                 <button
                                 onClick={(e) => handleStepClick(track, idx, e)}
-                                style={{ opacity: step.active ? 0.4 + ((step.velocity ?? 100) / 100 * 0.6) : 1 }}
                                 className={clsx(
                                     "w-full h-8 md:h-12 rounded-md transition-all duration-75 border border-slate-700/50 relative overflow-hidden flex items-center justify-center group",
-                                    step.active 
-                                    ? clsx("bg-green-600", "shadow-[0_0_10px_rgba(0,0,0,0.3)] brightness-110") 
+                                    // Step attivo
+                                    step.active
+                                    ? clsx(
+                                        "bg-trackActive shadow-[0_0_10px_rgba(0,0,0,0.3)] brightness-110",
+                                        `opacity-${Math.round(40 + ((step.velocity ?? 100) / 100 * 60))}` // oppure gestire con inline style se necessario
+                                        )
                                     : clsx(instDef?.color, "hover:opacity-75"),
+                                    // Subdivision opacity
                                     idx % 4 === 0 && !step.active && "opacity-50",
+                                    // Step corrente
                                     currentStep === idx && "ring-2 ring-white ring-opacity-50 z-10"
                                 )}
                                 >
+                                {/* Testo della nota e velocity */}
                                 {step.active && (
-                                    <span className="text-[9px] font-bold text-black/70 hidden md:block leading-tight">
-                                    {step.note}<br/>
+                                    <span className="text-[9px] font-bold text-white/70 hidden md:block leading-tight">
+                                    {step.note}
+                                    <br />
                                     <span className="opacity-70">{step.velocity ?? 100}</span>
                                     </span>
                                 )}
+
+                                {/* Indicatore step corrente */}
                                 {currentStep === idx && step.active && (
-                                    <div className="absolute inset-0 bg-white opacity-30 animate-pulse" />
+                                    <div className="absolute inset-0 bg-white/40 animate-flash pointer-events-none" />
                                 )}
                                 </button>
 
@@ -441,7 +450,7 @@ export const TrackList: React.FC<TrackListProps> = ({ tracks, currentTrackSteps,
       })}
 
       {tracks.length === 0 && (
-        <div className="text-center py-20 text-slate-500 border-2 border-dashed border-slate-700 rounded-xl">
+        <div className="text-center py-20 text-slate-500 border-1 border-dashed border-slate-700 rounded-xl">
           <p className="text-lg">Nessuna traccia attiva.</p>
           <p className="text-sm mt-2">Clicca su "+" per iniziare a creare musica!</p>
         </div>
