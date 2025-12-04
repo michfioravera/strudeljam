@@ -1,23 +1,155 @@
+/* src/index.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Custom Scrollbar */
+/* Custom scrollbar */
 .custom-scrollbar::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: #0f172a;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: rgb(30 41 59); /* slate-800 */
   border-radius: 4px;
 }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgb(71 85 105); /* slate-600 */
+  border-radius: 4px;
 }
 
-body {
-  background-color: #0f172a;
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgb(100 116 139); /* slate-500 */
+}
+
+/* Flash animation for active steps */
+@keyframes flash {
+  0%, 100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.animate-flash {
+  animation: flash 0.1s ease-out;
+}
+
+/* Track active color */
+.bg-trackActive {
+  background-color: rgb(34 211 238); /* cyan-400 */
+}
+
+/* Animate in utilities (if not using tailwind-animate) */
+@keyframes slideInFromBottom {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInFromTop {
+  from {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes zoomIn {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-in {
+  animation-duration: 200ms;
+  animation-fill-mode: both;
+}
+
+.slide-in-from-bottom-4 {
+  animation-name: slideInFromBottom;
+}
+
+.slide-in-from-top-2 {
+  animation-name: slideInFromTop;
+}
+
+.fade-in {
+  animation-name: fadeIn;
+}
+
+.zoom-in-95 {
+  animation-name: zoomIn;
+}
+
+/* Focus styles */
+input:focus,
+select:focus,
+textarea:focus,
+button:focus-visible {
+  outline: none;
+  ring: 2px;
+  ring-color: rgb(34 211 238 / 0.5); /* cyan-400/50 */
+}
+
+/* Range input styling */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  background: rgb(71 85 105); /* slate-600 */
+  height: 4px;
+  border-radius: 2px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -4px;
+  background-color: currentColor;
+  height: 12px;
+  width: 12px;
+  border-radius: 50%;
+}
+
+input[type="range"]::-moz-range-track {
+  background: rgb(71 85 105);
+  height: 4px;
+  border-radius: 2px;
+}
+
+input[type="range"]::-moz-range-thumb {
+  border: none;
+  background-color: currentColor;
+  height: 12px;
+  width: 12px;
+  border-radius: 50%;
 }

@@ -1,56 +1,17 @@
-export const TOTAL_STEPS = 16;
-export const DEFAULT_STEP_COUNT = 4;
-
-export type InstrumentType = 
-  | 'kick' | 'snare' | 'rim' | 'hat' | 'open_hat' | 'tom' | 'ride' | 'crash' | 'clap' | 'perc'
-  | 'sine' | 'triangle' | 'square' | 'sawtooth'
-  | 'white' | 'pink' | 'brown';
-
-export interface InstrumentDef {
-  id: InstrumentType;
-  name: string;
-  strudelName: string;
-  defaultNote?: string;
-  color: string; // Tailwind class for background/text
-  category: 'Drums' | 'Synths' | 'Noise';
-}
-
-export const INSTRUMENTS: InstrumentDef[] = [
-  // Drums
-  { id: 'kick', name: 'Kick (Cassa)', strudelName: 'bd', category: 'Drums', color: 'bg-red-600', defaultNote: 'C1' },
-  { id: 'snare', name: 'Snare', strudelName: 'sd', category: 'Drums', color: 'bg-orange-500', defaultNote: 'C2' },
-  { id: 'rim', name: 'Rimshot', strudelName: 'rim', category: 'Drums', color: 'bg-amber-700', defaultNote: 'C2' },
-  { id: 'hat', name: 'Hi-Hat Closed', strudelName: 'hh', category: 'Drums', color: 'bg-yellow-400', defaultNote: 'C4' },
-  { id: 'open_hat', name: 'Hi-Hat Open', strudelName: 'oh', category: 'Drums', color: 'bg-yellow-200', defaultNote: 'C4' },
-  { id: 'tom', name: 'Tom', strudelName: 'tom', category: 'Drums', color: 'bg-green-600', defaultNote: 'G2' },
-  { id: 'ride', name: 'Ride', strudelName: 'ride', category: 'Drums', color: 'bg-emerald-800', defaultNote: 'C4' },
-  { id: 'crash', name: 'Crash', strudelName: 'crash', category: 'Drums', color: 'bg-cyan-400', defaultNote: 'C4' },
-  { id: 'clap', name: 'Clap', strudelName: 'cp', category: 'Drums', color: 'bg-blue-500', defaultNote: 'C4' },
-  { id: 'perc', name: 'Percussion', strudelName: 'perc', category: 'Drums', color: 'bg-blue-900', defaultNote: 'C4' },
-
-  // Synths
-  { id: 'sine', name: 'Sine Wave', strudelName: 'sine', category: 'Synths', color: 'bg-fuchsia-500', defaultNote: 'C4' },
-  { id: 'triangle', name: 'Triangle', strudelName: 'triangle', category: 'Synths', color: 'bg-purple-600', defaultNote: 'C4' },
-  { id: 'square', name: 'Square', strudelName: 'square', category: 'Synths', color: 'bg-pink-600', defaultNote: 'C4' },
-  { id: 'sawtooth', name: 'Sawtooth', strudelName: 'sawtooth', category: 'Synths', color: 'bg-pink-400', defaultNote: 'C4' },
-
-  // Noise
-  { id: 'white', name: 'White Noise', strudelName: 'white', category: 'Noise', color: 'bg-slate-400', defaultNote: 'C4' },
-  { id: 'pink', name: 'Pink Noise', strudelName: 'pink', category: 'Noise', color: 'bg-rose-300', defaultNote: 'C4' },
-  { id: 'brown', name: 'Brown Noise', strudelName: 'brown', category: 'Noise', color: 'bg-amber-900', defaultNote: 'C4' },
-];
+// src/lib/constants.ts
+// StrudelJam v3.0 - Constants and Types
 
 export interface Step {
   active: boolean;
   note: string;
-  velocity: number; // 1-100
+  velocity: number;
 }
 
 export interface Track {
   id: string;
   instrument: InstrumentType;
-  steps: Step[];
   stepCount: number;
+  steps: Step[];
   volume: number;
   muted: boolean;
   pan: number;
@@ -64,3 +25,84 @@ export interface Sequence {
   name: string;
   tracks: Track[];
 }
+
+export type InstrumentType = 
+  | 'kick' | 'snare' | 'hat' | 'open_hat' | 'clap' | 'tom' | 'rim' | 'crash' | 'ride' | 'perc'
+  | 'sine' | 'triangle' | 'square' | 'sawtooth'
+  | 'white' | 'pink' | 'brown';
+
+export interface InstrumentDefinition {
+  id: InstrumentType;
+  name: string;
+  category: 'Drums' | 'Synths' | 'Noise';
+  defaultNote: string;
+  color: string;
+}
+
+export const INSTRUMENTS: InstrumentDefinition[] = [
+  // Drums
+  { id: 'kick', name: 'Kick', category: 'Drums', defaultNote: 'C2', color: 'bg-red-500' },
+  { id: 'snare', name: 'Snare', category: 'Drums', defaultNote: 'D2', color: 'bg-orange-500' },
+  { id: 'hat', name: 'Hi-Hat', category: 'Drums', defaultNote: 'F#2', color: 'bg-yellow-500' },
+  { id: 'open_hat', name: 'Open Hat', category: 'Drums', defaultNote: 'A#2', color: 'bg-yellow-600' },
+  { id: 'clap', name: 'Clap', category: 'Drums', defaultNote: 'D#2', color: 'bg-pink-500' },
+  { id: 'tom', name: 'Tom', category: 'Drums', defaultNote: 'G2', color: 'bg-amber-600' },
+  { id: 'rim', name: 'Rimshot', category: 'Drums', defaultNote: 'C#2', color: 'bg-orange-400' },
+  { id: 'crash', name: 'Crash', category: 'Drums', defaultNote: 'C#3', color: 'bg-cyan-500' },
+  { id: 'ride', name: 'Ride', category: 'Drums', defaultNote: 'D#3', color: 'bg-teal-500' },
+  { id: 'perc', name: 'Percussion', category: 'Drums', defaultNote: 'C3', color: 'bg-lime-500' },
+  
+  // Synths
+  { id: 'sine', name: 'Sine', category: 'Synths', defaultNote: 'C4', color: 'bg-blue-500' },
+  { id: 'triangle', name: 'Triangle', category: 'Synths', defaultNote: 'C4', color: 'bg-indigo-500' },
+  { id: 'square', name: 'Square', category: 'Synths', defaultNote: 'C4', color: 'bg-purple-500' },
+  { id: 'sawtooth', name: 'Sawtooth', category: 'Synths', defaultNote: 'C4', color: 'bg-violet-500' },
+  
+  // Noise
+  { id: 'white', name: 'White Noise', category: 'Noise', defaultNote: 'C3', color: 'bg-gray-400' },
+  { id: 'pink', name: 'Pink Noise', category: 'Noise', defaultNote: 'C3', color: 'bg-pink-400' },
+  { id: 'brown', name: 'Brown Noise', category: 'Noise', defaultNote: 'C3', color: 'bg-amber-700' },
+];
+
+export const DEFAULT_STEP_COUNT = 16;
+
+// Sequencer configuration constants
+export const SEQUENCER_CONFIG = {
+  STEPS_PER_MEASURE: 16,
+  BEATS_PER_MEASURE: 4,
+  LAST_STEP_INDEX: 15,
+  DEFAULT_VELOCITY: 100,
+  MIN_VELOCITY: 1,
+  MAX_VELOCITY: 100,
+  MIN_BPM: 40,
+  MAX_BPM: 300,
+  MIN_STEPS: 1,
+  MAX_STEPS: 32,
+} as const;
+
+// Polyphony configuration
+export const POLYPHONY_CONFIG = {
+  MAX_TOTAL_VOICES: 32,
+  MAX_VOICES_PER_TRACK: 8,
+  MAX_ACTIVE_PARTS: 16,
+  VOICE_CLEANUP_THRESHOLD: 28,
+} as const;
+
+// Audio buffer configuration
+export const AUDIO_BUFFER_CONFIG = {
+  BUFFER_SIZE: 4096,
+  SAMPLE_RATE: 48000,
+} as const;
+
+// Safe mode configuration
+export const SAFE_MODE_CONFIG = {
+  ENABLED: true,
+  FILTER_FREQ: 8000,
+  REDUCE_HARMONICS: true,
+} as const;
+
+// Debug configuration
+export const DEBUG_CONFIG = {
+  ENABLED: true,
+  LOG_INTERVAL_MS: 2000,
+} as const;
