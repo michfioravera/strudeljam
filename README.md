@@ -115,9 +115,4 @@ Cannot find module @rollup/rollup-linux-x64-gnu
 - TailwindCSS
 - Strudel con integrazione in Dual Mode
 
----
 
-## Licenza
-
-MIT License.
-Libero utilizzo, modifica e distribuzione del software.

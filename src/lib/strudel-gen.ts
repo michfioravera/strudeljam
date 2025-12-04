@@ -1,231 +1,247 @@
-import { Track, INSTRUMENTS, TOTAL_STEPS, Step } from './constants';
+// src/lib/strudel-gen.ts
+// Strudel code generation and parsing
+
+import { Track, Step, InstrumentType, INSTRUMENTS, SEQUENCER_CONFIG } from './constants';
+import { generateId } from '../utils/id';
 
 /**
- * Generates lightweight Strudel code that prevents:
- * - Nested stacks (exponential voice growth)
- * - Complex polyphonic patterns
- * - Excessive effects chains
+ * Generate Strudel code from tracks
  */
-export const generateStrudelCode = (tracks: Track[], bpm: number): string => {
-  if (tracks.length === 0) return '// Aggiungi una traccia per iniziare\n';
+export function generateStrudelCode(tracks: Track[], bpm: number): string {
+  if (tracks.length === 0) {
+    return `// No tracks yet\n// Add instruments to generate Strudel code\n\nsetcps(${(bpm / 60 / 4).toFixed(4)})`;
+  }
 
-  // Filter and limit tracks to prevent overload
-  const MAX_TRACKS = 16; // Hard limit
-  const trackLines = tracks
-    .slice(0, MAX_TRACKS)
-    .map(track => {
-      if (track.muted) return null;
-      
-      const instDef = INSTRUMENTS.find(i => i.id === track.instrument);
-      if (!instDef) return null;
+  const cps = bpm / 60 / 4;
+  let code = `// StrudelJam v3.0 - Generated Code\n`;
+  code += `// BPM: ${bpm}\n\n`;
+  code += `setcps(${cps.toFixed(4)})\n\n`;
 
-      const stepCount = Math.max(1, Math.min(32, track.stepCount || 16));
-      const activeSteps = track.steps.slice(0, stepCount).filter(s => s.active);
-      
-      if (activeSteps.length === 0) return null;
+  const trackCodes: string[] = [];
 
-      const firstNote = activeSteps[0]?.note;
-      const allSameNote = activeSteps.every(s => s.note === firstNote);
-      
-      // Check if all velocities are 100
-      const allFullVelocity = activeSteps.every(s => (s.velocity ?? 100) === 100);
+  tracks.forEach((track, index) => {
+    const instDef = INSTRUMENTS.find((i) => i.id === track.instrument);
+    if (!instDef) return;
 
-      let line = `  s("${instDef.strudelName}")`;
+    const stepCount = track.stepCount || SEQUENCER_CONFIG.STEPS_PER_MEASURE;
+    const activeSteps = track.steps.slice(0, stepCount);
 
-      // Note & Struct - LIGHTWEIGHT PATTERN (no nested structures)
-      const patternChars = track.steps.slice(0, stepCount).map(s => s.active ? 'x' : '.');
-      const patternString = patternChars.join('');
-
-      if (allSameNote && firstNote) {
-        // Simple pattern: single note with struct
-        line += `.note("${firstNote}")`;
-        line += `.struct("${patternString}")`;
-      } else if (activeSteps.length <= stepCount / 2) {
-        // For sparse melodic patterns, use note pattern
-        const notePattern = track.steps.slice(0, stepCount).map(s => s.active ? s.note : '~').join(' ');
-        line += `.note("${notePattern}")`;
+    // Build pattern string
+    const patternParts: string[] = [];
+    
+    activeSteps.forEach((step) => {
+      if (step.active) {
+        patternParts.push(step.note || instDef.defaultNote);
       } else {
-        // Fall back to single note if too many variations
-        line += `.note("${firstNote || instDef.defaultNote || 'C4'}")`;
-        line += `.struct("${patternString}")`;
+        patternParts.push('~');
       }
-      
-      // Gain / Velocity - CLAMPED to prevent distortion
-      const trackVol = Math.min(1.0, track.volume); // Never exceed 1.0
-      
-      if (allFullVelocity) {
-        if (trackVol < 1.0) {
-          line += `.gain(${trackVol.toFixed(2)})`;
-        }
-      } else {
-        // Generate gain pattern with normalization
-        const gainPattern = track.steps.slice(0, stepCount).map(s => {
-          if (!s.active) return '~';
-          const vel = Math.min(1.0, (s.velocity ?? 100) / 100);
-          const finalGain = Math.min(1.0, vel * trackVol * 0.95); // 0.95 for headroom
-          return finalGain === 1.0 ? 1 : parseFloat(finalGain.toFixed(2));
-        }).join(' ');
-        line += `.gain("${gainPattern}")`;
-      }
+    });
 
-      // Pan - KEEP SUBTLE
-      if (Math.abs(track.pan) > 0.1) {
-        line += `.pan(${Math.max(-0.9, Math.min(0.9, track.pan))})`;
-      }
+    const pattern = patternParts.join(' ');
 
-      // Effects - REDUCE to prevent feedback loops and CPU load
-      // Only apply if value is significant
-      if (track.delay > 10) {
-        const delayAmount = Math.min(0.5, track.delay / 200); // Reduced max
-        line += `.delay(${delayAmount.toFixed(2)})`;
-      }
-      if (track.reverb > 10) {
-        const reverbAmount = Math.min(0.4, track.reverb / 250); // Reduced max
-        line += `.reverb(${reverbAmount.toFixed(2)})`;
-      }
-      if (track.distortion > 15) {
-        const distAmount = Math.min(0.5, track.distortion / 200); // Reduced max
-        line += `.distortion(${distAmount.toFixed(2)})`;
-      }
+    // Build the Strudel expression
+    let expr = `// Track ${index + 1}: ${instDef.name}\n`;
+    expr += `note("${pattern}")`;
 
-      return line;
-    })
-    .filter(Boolean);
+    // Add sound/instrument
+    expr += `\n  .sound("${getStrudelSound(track.instrument)}")`;
 
-  if (trackLines.length === 0) return `// Tutte le tracce sono mute o vuote\nsetcps(${bpm/60/4})`;
+    // Add gain based on velocity (average of active steps)
+    const activeStepsWithVelocity = activeSteps.filter((s) => s.active);
+    if (activeStepsWithVelocity.length > 0) {
+      const velocities = activeStepsWithVelocity.map((s) => (s.velocity ?? 100) / 100);
+      const avgVelocity = velocities.reduce((a, b) => a + b, 0) / velocities.length;
+      expr += `\n  .gain(${(track.volume * avgVelocity).toFixed(2)})`;
+    } else {
+      expr += `\n  .gain(${track.volume.toFixed(2)})`;
+    }
 
-  // Generate lightweight code WITHOUT nested stacks
-  return `// Strudel Code - Lightweight Mode (Performance Optimized)
-setcps(${(bpm / 60 / 4).toFixed(4)}); // ${bpm} BPM
+    // Add pan
+    if (track.pan !== 0) {
+      expr += `\n  .pan(${((track.pan + 1) / 2).toFixed(2)})`;
+    }
 
-stack(
-${trackLines.join(',\n')}
-).out();
-`;
-};
+    // Add delay
+    if (track.delay > 0) {
+      expr += `\n  .delay(${(track.delay / 100).toFixed(2)})`;
+    }
+
+    // Add reverb
+    if (track.reverb > 0) {
+      expr += `\n  .room(${(track.reverb / 100).toFixed(2)})`;
+    }
+
+    // Add distortion
+    if (track.distortion > 0) {
+      expr += `\n  .distort(${(track.distortion / 100).toFixed(2)})`;
+    }
+
+    // Add mute comment
+    if (track.muted) {
+      expr = `// MUTED\n// ${expr.split('\n').join('\n// ')}`;
+    }
+
+    trackCodes.push(expr);
+  });
+
+  code += trackCodes.join('\n\n');
+
+  return code;
+}
 
 /**
- * Parse Strudel code with safety constraints:
- * - Max 16 tracks (prevents exponential growth)
- * - Clamped effects values
- * - No nested structures
- * - Normalized gain to prevent clipping
+ * Get Strudel sound name from instrument type
  */
-export const parseStrudelCode = (code: string): Partial<Track>[] | null => {
+function getStrudelSound(type: InstrumentType): string {
+  const soundMap: Record<InstrumentType, string> = {
+    kick: 'bd',
+    snare: 'sd',
+    hat: 'hh',
+    open_hat: 'oh',
+    clap: 'cp',
+    tom: 'tom',
+    rim: 'rim',
+    crash: 'crash',
+    ride: 'ride',
+    perc: 'perc',
+    sine: 'sine',
+    triangle: 'triangle',
+    square: 'square',
+    sawtooth: 'sawtooth',
+    white: 'white',
+    pink: 'pink',
+    brown: 'brown',
+  };
+
+  return soundMap[type] || 'sine';
+}
+
+/**
+ * Parse Strudel code back to track configuration
+ */
+export function parseStrudelCode(code: string): Partial<Track>[] | null {
   try {
-    const lines = code.split('\n');
-    const parsedTracks: Partial<Track>[] = [];
-    const MAX_PARSED_TRACKS = 16;
+    const tracks: Partial<Track>[] = [];
 
-    for (const line of lines) {
-      if (parsedTracks.length >= MAX_PARSED_TRACKS) break;
+    // Split by track comments or double newlines
+    const trackBlocks = code.split(/\/\/ Track \d+:|(?:\n\s*\n)/);
 
-      const sMatch = line.match(/s\("([^"]+)"\)/);
-      if (!sMatch) continue;
+    trackBlocks.forEach((block) => {
+      const trimmedBlock = block.trim();
+      if (!trimmedBlock || trimmedBlock.startsWith('// StrudelJam') || trimmedBlock.startsWith('setcps')) {
+        return;
+      }
 
-      const strudelName = sMatch[1];
-      const instDef = INSTRUMENTS.find(i => i.strudelName === strudelName);
-      if (!instDef) continue;
+      // Check if muted
+      const isMuted = trimmedBlock.includes('// MUTED');
+      const cleanBlock = trimmedBlock.replace(/\/\/ MUTED\n?/g, '').replace(/\/\/ /g, '');
 
-      // Default initialization
-      let stepCount = 16;
-      const steps: Step[] = Array(32).fill(null).map(() => ({
-        active: false, 
-        note: instDef.defaultNote || 'C3',
-        velocity: 100
-      }));
+      // Parse note pattern
+      const noteMatch = cleanBlock.match(/note$"([^"]+)"$/);
+      if (!noteMatch) return;
 
-      // Note & Struct parsing
-      const noteMatch = line.match(/\.note\("([^"]+)"\)/);
-      const structMatch = line.match(/\.struct\("([^"]+)"\)/);
-      
-      if (noteMatch) {
-        const noteContent = noteMatch[1];
-        if (noteContent.includes('~') || noteContent.includes(' ')) {
-          // Pattern like "C3 ~ D3 ~"
-          const tokens = noteContent.trim().split(/\s+/).slice(0, 32); // Limit tokens
-          stepCount = Math.max(1, Math.min(32, tokens.length));
-           
-          for (let i = 0; i < stepCount; i++) {
-            if (tokens[i] && tokens[i] !== '~' && tokens[i] !== '.') {
-              steps[i] = { active: true, note: tokens[i], velocity: 100 };
-            }
-          }
+      const pattern = noteMatch[1];
+      const notes = pattern.split(/\s+/);
+
+      // Parse sound
+      const soundMatch = cleanBlock.match(/\.sound$"([^"]+)"$/);
+      const sound = soundMatch ? soundMatch[1] : 'sine';
+      const instrument = getInstrumentFromSound(sound);
+
+      // Parse gain
+      const gainMatch = cleanBlock.match(/\.gain$([0-9.]+)$/);
+      const gain = gainMatch ? parseFloat(gainMatch[1]) : 0.8;
+
+      // Parse pan
+      const panMatch = cleanBlock.match(/\.pan$([0-9.]+)$/);
+      const pan = panMatch ? parseFloat(panMatch[1]) * 2 - 1 : 0;
+
+      // Parse delay
+      const delayMatch = cleanBlock.match(/\.delay$([0-9.]+)$/);
+      const delay = delayMatch ? Math.round(parseFloat(delayMatch[1]) * 100) : 0;
+
+      // Parse reverb
+      const roomMatch = cleanBlock.match(/\.room$([0-9.]+)$/);
+      const reverb = roomMatch ? Math.round(parseFloat(roomMatch[1]) * 100) : 0;
+
+      // Parse distortion
+      const distortMatch = cleanBlock.match(/\.distort$([0-9.]+)$/);
+      const distortion = distortMatch ? Math.round(parseFloat(distortMatch[1]) * 100) : 0;
+
+      // Build steps
+      const steps: Step[] = [];
+      const instDef = INSTRUMENTS.find((i) => i.id === instrument);
+
+      notes.forEach((note) => {
+        if (note === '~' || note === '-' || note === '.') {
+          steps.push({
+            active: false,
+            note: instDef?.defaultNote || 'C3',
+            velocity: SEQUENCER_CONFIG.DEFAULT_VELOCITY,
+          });
         } else {
-          // Single note applied to a struct
-          const fixedNote = noteContent;
-          if (structMatch) {
-            const cleanStruct = structMatch[1].replace(/\s/g, '').slice(0, 32);
-            stepCount = Math.max(1, Math.min(32, cleanStruct.length));
-             
-            for (let i = 0; i < stepCount; i++) {
-              if (cleanStruct[i] !== '.') {
-                steps[i] = { active: true, note: fixedNote, velocity: 100 };
-              }
-            }
-          }
+          steps.push({
+            active: true,
+            note: note,
+            velocity: Math.round(gain * 100),
+          });
         }
-      } else if (structMatch) {
-        const cleanStruct = structMatch[1].replace(/\s/g, '').slice(0, 32);
-        stepCount = Math.max(1, Math.min(32, cleanStruct.length));
-        for (let i = 0; i < stepCount; i++) {
-          if (cleanStruct[i] !== '.') {
-            steps[i] = { active: true, note: instDef.defaultNote || 'C3', velocity: 100 };
-          }
-        }
+      });
+
+      // Pad to 32 steps
+      while (steps.length < SEQUENCER_CONFIG.MAX_STEPS) {
+        steps.push({
+          active: false,
+          note: instDef?.defaultNote || 'C3',
+          velocity: SEQUENCER_CONFIG.DEFAULT_VELOCITY,
+        });
       }
 
-      // Volume & Velocity Parsing with clamping
-      const gainPatternMatch = line.match(/\.gain\("([^"]+)"\)/);
-      const gainSingleMatch = line.match(/\.gain\(([\d.-]+)\)/);
-      
-      let trackVolume = 1.0;
-
-      if (gainPatternMatch) {
-        const tokens = gainPatternMatch[1].trim().split(/\s+/);
-        if (tokens.length === stepCount) {
-          for (let i = 0; i < stepCount; i++) {
-            if (tokens[i] !== '~' && steps[i].active) {
-              const gainVal = Math.max(0, Math.min(1.0, parseFloat(tokens[i])));
-              steps[i].velocity = Math.max(1, Math.min(100, Math.round(gainVal * 100)));
-            }
-          }
-        }
-      } else if (gainSingleMatch) {
-        trackVolume = Math.max(0, Math.min(1.0, parseFloat(gainSingleMatch[1])));
-      }
-
-      // Pan - Clamped to [-1, 1]
-      const panMatch = line.match(/\.pan\(([\d.-]+)\)/);
-      const pan = panMatch ? Math.max(-1, Math.min(1, parseFloat(panMatch[1]))) : 0;
-
-      // Effects - All clamped and reduced
-      const delayMatch = line.match(/\.delay\(([\d.]+)\)/);
-      const delay = delayMatch ? Math.max(0, Math.min(100, parseFloat(delayMatch[1]) * 100)) : 0;
-
-      const reverbMatch = line.match(/\.reverb\(([\d.]+)\)/);
-      const reverb = reverbMatch ? Math.max(0, Math.min(100, parseFloat(reverbMatch[1]) * 100)) : 0;
-
-      const distMatch = line.match(/\.distortion\(([\d.]+)\)/);
-      const distortion = distMatch ? Math.max(0, Math.min(100, parseFloat(distMatch[1]) * 100)) : 0;
-
-      parsedTracks.push({
-        id: Math.random().toString(36).substr(2, 9),
-        instrument: instDef.id,
-        steps: steps.slice(0, 32),
-        stepCount: stepCount,
-        volume: trackVolume,
-        muted: false,
+      tracks.push({
+        id: generateId(),
+        instrument,
+        stepCount: Math.min(notes.length, SEQUENCER_CONFIG.MAX_STEPS),
+        steps,
+        volume: Math.min(1, gain),
+        muted: isMuted,
         pan,
         delay,
         reverb,
-        distortion
+        distortion,
       });
-    }
+    });
 
-    return parsedTracks.length > 0 ? parsedTracks : null;
-  } catch (e) {
-    console.error("[PARSE] Failed to parse Strudel code:", e);
+    return tracks.length > 0 ? tracks : null;
+  } catch (error) {
+    console.error('[STRUDEL-GEN] Parse error:', error);
     return null;
   }
-};
+}
+
+/**
+ * Get instrument type from Strudel sound name
+ */
+function getInstrumentFromSound(sound: string): InstrumentType {
+  const reverseMap: Record<string, InstrumentType> = {
+    bd: 'kick',
+    sd: 'snare',
+    hh: 'hat',
+    oh: 'open_hat',
+    cp: 'clap',
+    tom: 'tom',
+    rim: 'rim',
+    crash: 'crash',
+    ride: 'ride',
+    perc: 'perc',
+    sine: 'sine',
+    triangle: 'triangle',
+    square: 'square',
+    sawtooth: 'sawtooth',
+    saw: 'sawtooth',
+    white: 'white',
+    pink: 'pink',
+    brown: 'brown',
+  };
+
+  return reverseMap[sound] || 'sine';
+}
