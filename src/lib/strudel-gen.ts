@@ -1,12 +1,7 @@
 // src/lib/strudel-gen.ts
-// Strudel code generation and parsing
-
 import { Track, Step, InstrumentType, INSTRUMENTS, SEQUENCER_CONFIG } from './constants';
 import { generateId } from '../utils/id';
 
-/**
- * Generate Strudel code from tracks
- */
 export function generateStrudelCode(tracks: Track[], bpm: number): string {
   if (tracks.length === 0) {
     return `// No tracks yet\n// Add instruments to generate Strudel code\n\nsetcps(${(bpm / 60 / 4).toFixed(4)})`;
@@ -26,7 +21,6 @@ export function generateStrudelCode(tracks: Track[], bpm: number): string {
     const stepCount = track.stepCount || SEQUENCER_CONFIG.STEPS_PER_MEASURE;
     const activeSteps = track.steps.slice(0, stepCount);
 
-    // Build pattern string
     const patternParts: string[] = [];
     
     activeSteps.forEach((step) => {
@@ -39,14 +33,10 @@ export function generateStrudelCode(tracks: Track[], bpm: number): string {
 
     const pattern = patternParts.join(' ');
 
-    // Build the Strudel expression
     let expr = `// Track ${index + 1}: ${instDef.name}\n`;
     expr += `note("${pattern}")`;
-
-    // Add sound/instrument
     expr += `\n  .sound("${getStrudelSound(track.instrument)}")`;
 
-    // Add gain based on velocity (average of active steps)
     const activeStepsWithVelocity = activeSteps.filter((s) => s.active);
     if (activeStepsWithVelocity.length > 0) {
       const velocities = activeStepsWithVelocity.map((s) => (s.velocity ?? 100) / 100);
@@ -56,27 +46,22 @@ export function generateStrudelCode(tracks: Track[], bpm: number): string {
       expr += `\n  .gain(${track.volume.toFixed(2)})`;
     }
 
-    // Add pan
     if (track.pan !== 0) {
       expr += `\n  .pan(${((track.pan + 1) / 2).toFixed(2)})`;
     }
 
-    // Add delay
     if (track.delay > 0) {
       expr += `\n  .delay(${(track.delay / 100).toFixed(2)})`;
     }
 
-    // Add reverb
     if (track.reverb > 0) {
       expr += `\n  .room(${(track.reverb / 100).toFixed(2)})`;
     }
 
-    // Add distortion
     if (track.distortion > 0) {
       expr += `\n  .distort(${(track.distortion / 100).toFixed(2)})`;
     }
 
-    // Add mute comment
     if (track.muted) {
       expr = `// MUTED\n// ${expr.split('\n').join('\n// ')}`;
     }
@@ -89,9 +74,6 @@ export function generateStrudelCode(tracks: Track[], bpm: number): string {
   return code;
 }
 
-/**
- * Get Strudel sound name from instrument type
- */
 function getStrudelSound(type: InstrumentType): string {
   const soundMap: Record<InstrumentType, string> = {
     kick: 'bd',
@@ -112,19 +94,13 @@ function getStrudelSound(type: InstrumentType): string {
     pink: 'pink',
     brown: 'brown',
   };
-
   return soundMap[type] || 'sine';
 }
 
-/**
- * Parse Strudel code back to track configuration
- */
 export function parseStrudelCode(code: string): Partial<Track>[] | null {
   try {
     const tracks: Partial<Track>[] = [];
-
-    // Split by track comments or double newlines
-    const trackBlocks = code.split(/\/\/ Track \d+:|(?:\n\s*\n)/);
+    const trackBlocks = code.split(/\/\/ Track \d+:/);
 
     trackBlocks.forEach((block) => {
       const trimmedBlock = block.trim();
@@ -132,43 +108,34 @@ export function parseStrudelCode(code: string): Partial<Track>[] | null {
         return;
       }
 
-      // Check if muted
       const isMuted = trimmedBlock.includes('// MUTED');
       const cleanBlock = trimmedBlock.replace(/\/\/ MUTED\n?/g, '').replace(/\/\/ /g, '');
 
-      // Parse note pattern
-      const noteMatch = cleanBlock.match(/note$"([^"]+)"$/);
+      const noteMatch = cleanBlock.match(/note\("([^"]+)"\)/);
       if (!noteMatch) return;
 
       const pattern = noteMatch[1];
       const notes = pattern.split(/\s+/);
 
-      // Parse sound
-      const soundMatch = cleanBlock.match(/\.sound$"([^"]+)"$/);
+      const soundMatch = cleanBlock.match(/\.sound\("([^"]+)"\)/);
       const sound = soundMatch ? soundMatch[1] : 'sine';
       const instrument = getInstrumentFromSound(sound);
 
-      // Parse gain
-      const gainMatch = cleanBlock.match(/\.gain$([0-9.]+)$/);
+      const gainMatch = cleanBlock.match(/\.gain\(([0-9.]+)\)/);
       const gain = gainMatch ? parseFloat(gainMatch[1]) : 0.8;
 
-      // Parse pan
-      const panMatch = cleanBlock.match(/\.pan$([0-9.]+)$/);
+      const panMatch = cleanBlock.match(/\.pan\(([0-9.]+)\)/);
       const pan = panMatch ? parseFloat(panMatch[1]) * 2 - 1 : 0;
 
-      // Parse delay
-      const delayMatch = cleanBlock.match(/\.delay$([0-9.]+)$/);
+      const delayMatch = cleanBlock.match(/\.delay\(([0-9.]+)\)/);
       const delay = delayMatch ? Math.round(parseFloat(delayMatch[1]) * 100) : 0;
 
-      // Parse reverb
-      const roomMatch = cleanBlock.match(/\.room$([0-9.]+)$/);
+      const roomMatch = cleanBlock.match(/\.room\(([0-9.]+)\)/);
       const reverb = roomMatch ? Math.round(parseFloat(roomMatch[1]) * 100) : 0;
 
-      // Parse distortion
-      const distortMatch = cleanBlock.match(/\.distort$([0-9.]+)$/);
+      const distortMatch = cleanBlock.match(/\.distort\(([0-9.]+)\)/);
       const distortion = distortMatch ? Math.round(parseFloat(distortMatch[1]) * 100) : 0;
 
-      // Build steps
       const steps: Step[] = [];
       const instDef = INSTRUMENTS.find((i) => i.id === instrument);
 
@@ -188,7 +155,6 @@ export function parseStrudelCode(code: string): Partial<Track>[] | null {
         }
       });
 
-      // Pad to 32 steps
       while (steps.length < SEQUENCER_CONFIG.MAX_STEPS) {
         steps.push({
           active: false,
@@ -218,9 +184,6 @@ export function parseStrudelCode(code: string): Partial<Track>[] | null {
   }
 }
 
-/**
- * Get instrument type from Strudel sound name
- */
 function getInstrumentFromSound(sound: string): InstrumentType {
   const reverseMap: Record<string, InstrumentType> = {
     bd: 'kick',
@@ -242,6 +205,5 @@ function getInstrumentFromSound(sound: string): InstrumentType {
     pink: 'pink',
     brown: 'brown',
   };
-
   return reverseMap[sound] || 'sine';
 }
