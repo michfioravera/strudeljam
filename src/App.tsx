@@ -88,7 +88,6 @@ const NumberInput: React.FC<NumberInputProps> = React.memo(
 
 NumberInput.displayName = 'NumberInput';
 
-// Create default steps array
 const createDefaultSteps = (defaultNote: string = 'C3'): Step[] => {
   const steps: Step[] = [];
   for (let i = 0; i < SEQUENCER_CONFIG.MAX_STEPS; i++) {
@@ -101,7 +100,6 @@ const createDefaultSteps = (defaultNote: string = 'C3'): Step[] => {
   return steps;
 };
 
-// Create default sequence
 const createDefaultSequence = (): Sequence => ({
   id: generateId(),
   name: 'Pattern A',
@@ -109,13 +107,11 @@ const createDefaultSequence = (): Sequence => ({
 });
 
 function App() {
-  // Sequence State
   const [sequences, setSequences] = useState<Sequence[]>(() => [createDefaultSequence()]);
   const [activeSequenceId, setActiveSequenceId] = useState<string>(() => sequences[0]?.id || '');
   const [pinnedSequenceId, setPinnedSequenceId] = useState<string | null>(null);
   const [playMode, setPlayMode] = useState<'single' | 'all'>('single');
 
-  // Derived state for playback and display
   const playbackSequence = useMemo(
     () => sequences.find((s) => s.id === activeSequenceId) || sequences[0],
     [sequences, activeSequenceId]
@@ -129,7 +125,6 @@ function App() {
   );
   const displayedTracks = displayedSequence?.tracks || [];
 
-  // Other State
   const [isPlaying, setIsPlaying] = useState(false);
   const [bpm, setBpm] = useState(120);
   const [defaultStepCount, setDefaultStepCount] = useState(DEFAULT_STEP_COUNT);
@@ -142,13 +137,11 @@ function App() {
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [codeContent, setCodeContent] = useState('');
 
-  // Refs for stable callbacks
   const sequencesRef = useRef(sequences);
   const activeSeqIdRef = useRef(activeSequenceId);
   const playModeRef = useRef(playMode);
   const prevTracksSignatureRef = useRef<string>('');
 
-  // Keep refs in sync
   useEffect(() => {
     sequencesRef.current = sequences;
   }, [sequences]);
@@ -161,19 +154,16 @@ function App() {
     playModeRef.current = playMode;
   }, [playMode]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       audioEngine.dispose();
     };
   }, []);
 
-  // Sync BPM with audio engine
   useEffect(() => {
     audioEngine.setBpm(bpm);
   }, [bpm]);
 
-  // Handle track step updates
   const handleTrackStep = useCallback((trackId: string, step: number) => {
     setCurrentTrackSteps((prev) => ({
       ...prev,
@@ -181,12 +171,10 @@ function App() {
     }));
   }, []);
 
-  // Handle global step updates
   const handleGlobalStep = useCallback((step: number) => {
     setGlobalStep(step);
   }, []);
 
-  // Handle sequence advancement in 'all' play mode
   useEffect(() => {
     if (globalStep === SEQUENCER_CONFIG.LAST_STEP_INDEX && playMode === 'all') {
       const currentIndex = sequences.findIndex((s) => s.id === activeSequenceId);
@@ -197,7 +185,6 @@ function App() {
     }
   }, [globalStep, playMode, sequences, activeSequenceId]);
 
-  // Update audio engine when playback tracks change
   useEffect(() => {
     const tracksSignature = createTracksSignature(playbackTracks);
 
@@ -207,13 +194,11 @@ function App() {
     }
   }, [playbackTracks, handleTrackStep, handleGlobalStep]);
 
-  // Update code content when displayed tracks change
   useEffect(() => {
     const code = generateStrudelCode(displayedTracks, bpm);
     setCodeContent(code);
   }, [displayedTracks, bpm]);
 
-  // Helper to update tracks in the displayed sequence
   const setTracks = useCallback(
     (newTracks: Track[]) => {
       setSequences((prev) =>
@@ -223,7 +208,6 @@ function App() {
     [displayedSequenceId]
   );
 
-  // Sequence management
   const addSequence = useCallback(() => {
     const newSeq: Sequence = {
       id: generateId(),
@@ -281,15 +265,9 @@ function App() {
     setSequences((prev) => prev.map((s) => (s.id === id ? { ...s, name: newName } : s)));
   }, []);
 
-  // Playback controls
   const togglePlay = useCallback(async () => {
     if (!isPlaying) {
       try {
-        // Resume audio context if needed
-        const toneContext = (window as any).Tone?.Destination?.context;
-        if (toneContext?.state === 'suspended') {
-          await toneContext.resume();
-        }
         await audioEngine.start();
         setIsPlaying(true);
       } catch (error) {
@@ -303,7 +281,6 @@ function App() {
     }
   }, [isPlaying]);
 
-  // Track management
   const addTrack = useCallback(
     (type: InstrumentType) => {
       const instDef = INSTRUMENTS.find((i) => i.id === type);
@@ -358,14 +335,12 @@ function App() {
     [displayedTracks, setTracks]
   );
 
-  // Recording
   const handleRecord = useCallback(async () => {
     if (isRecording) {
       try {
         const url = await audioEngine.stopRecording();
         setIsRecording(false);
 
-        // Download the recording
         const a = document.createElement('a');
         a.href = url;
         a.download = `strudel-session-${new Date().toISOString().slice(0, 19)}.webm`;
@@ -373,7 +348,6 @@ function App() {
         a.click();
         document.body.removeChild(a);
 
-        // Cleanup URL
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       } catch (error) {
         console.error('[APP] Recording stop error:', error);
@@ -389,7 +363,6 @@ function App() {
     }
   }, [isRecording]);
 
-  // Code editor
   const handleCodeChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setCodeContent(e.target.value);
   }, []);
@@ -401,7 +374,6 @@ function App() {
         const fullTracks: Track[] = parsed.map((p) => {
           const steps: Step[] = createDefaultSteps(p.steps?.[0]?.note || 'C3');
 
-          // Copy parsed steps
           if (p.steps && Array.isArray(p.steps)) {
             for (let i = 0; i < Math.min(p.steps.length, SEQUENCER_CONFIG.MAX_STEPS); i++) {
               if (p.steps[i]) {
@@ -435,7 +407,6 @@ function App() {
     }
   }, [codeContent, setTracks]);
 
-  // Toggle handlers
   const handleTogglePlayMode = useCallback(() => {
     setPlayMode((prev) => (prev === 'single' ? 'all' : 'single'));
   }, []);
@@ -452,7 +423,6 @@ function App() {
     setShowAddMenu((prev) => !prev);
   }, []);
 
-  // Instrument categories for add menu
   const instrumentCategories = useMemo(
     () => ['Drums', 'Synths', 'Noise'] as const,
     []
@@ -461,7 +431,6 @@ function App() {
   return (
     <ErrorBoundary>
       <div className="min-h-screen bg-slate-900 text-slate-100 font-sans selection:bg-cyan-500/30">
-        {/* Header */}
         <header className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur border-b border-slate-800 shadow-xl">
           <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -536,10 +505,8 @@ function App() {
           </div>
         </header>
 
-        {/* Main Content */}
         <main className="flex h-[calc(100vh-64px)] relative overflow-hidden">
           <div className="flex-1 overflow-y-auto custom-scrollbar relative">
-            {/* Sequence List (Sticky) */}
             <div className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur border-b border-slate-800 pt-4 pb-2 px-4 shadow-lg">
               <SequenceList
                 sequences={sequences}
@@ -556,7 +523,6 @@ function App() {
               />
             </div>
 
-            {/* Track List */}
             <div className="py-6 px-4">
               <AudioErrorBoundary>
                 <TrackList
@@ -568,7 +534,6 @@ function App() {
               </AudioErrorBoundary>
             </div>
 
-            {/* Floating Add Button */}
             <div className="fixed bottom-8 right-8 z-30">
               <div className="relative">
                 {showAddMenu && (
@@ -609,7 +574,6 @@ function App() {
             </div>
           </div>
 
-          {/* Code Panel */}
           <div
             className={clsx(
               'fixed inset-y-0 right-0 w-full md:w-[450px] bg-slate-950 border-l border-slate-800 transform transition-transform duration-300 ease-in-out z-40 shadow-2xl flex flex-col pt-16',
@@ -626,7 +590,7 @@ function App() {
                   </span>
                 )}
               </h2>
-                            <div className="flex gap-2">
+              <div className="flex gap-2">
                 <button
                   onClick={applyCode}
                   className="text-xs bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded text-slate-300 border border-slate-700 transition-colors"
