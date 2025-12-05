@@ -177,19 +177,24 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (globalStep === SEQUENCER_CONFIG.LAST_STEP_INDEX && playMode === 'all') {
-      // FIX: Solo cambia sequenza se quella corrente è diversa dall'ultima che abbiamo visto
-      if (lastSequenceIdRef.current === activeSequenceId) {
+    if (playMode === 'all') {
+      // Cambio sequenza solo una volta quando raggiungiamo l'ultimo step
+      if (globalStep === SEQUENCER_CONFIG.LAST_STEP_INDEX && !sequenceChangedInCycle) {
         const currentIndex = sequences.findIndex((s) => s.id === activeSequenceId);
         if (currentIndex !== -1) {
           const nextIndex = (currentIndex + 1) % sequences.length;
           console.log(`[APP] Global step ${globalStep} - switching to next sequence: ${sequences[nextIndex].name}`);
           setActiveSequenceId(sequences[nextIndex].id);
-          lastSequenceIdRef.current = sequences[nextIndex].id;
+          setSequenceChangedInCycle(true);
         }
       }
+      // Resetta il flag quando torna a step 0 per permettere il prossimo cambio
+      if (globalStep === 0 && sequenceChangedInCycle) {
+        console.log('[APP] Global step 0 - reset sequence change flag');
+        setSequenceChangedInCycle(false);
+      }
     }
-  }, [globalStep, playMode, sequences, activeSequenceId]);
+  }, [globalStep, playMode, sequences, activeSequenceId, sequenceChangedInCycle]);
 
   useEffect(() => {
     const tracksSignature = createTracksSignature(playbackTracks);
