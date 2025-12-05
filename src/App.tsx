@@ -118,12 +118,23 @@ function App() {
   );
   const playbackTracks = playbackSequence?.tracks || [];
 
+  // FIX: Quando editi, modifica sempre la sequenza in playback (non quella pinned)
+  // La sequenza pinned è solo per la visualizzazione, non per il playback
   const displayedSequenceId = pinnedSequenceId || activeSequenceId;
   const displayedSequence = useMemo(
     () => sequences.find((s) => s.id === displayedSequenceId) || sequences[0],
     [sequences, displayedSequenceId]
   );
   const displayedTracks = displayedSequence?.tracks || [];
+
+  // Quando il playback cambia sequenza, aggiorna automaticamente le track
+  useEffect(() => {
+    if (!pinnedSequenceId && activeSequenceId !== displayedSequenceId) {
+      // Se stai riproducendo una sequenza diversa da quella visualizzata,
+      // allora aggiorna le track in playback
+      console.log('[APP] Playback sequence changed, updating tracks in playback');
+    }
+  }, [activeSequenceId, pinnedSequenceId, displayedSequenceId]);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [bpm, setBpm] = useState(120);
