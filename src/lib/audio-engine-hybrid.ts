@@ -240,6 +240,20 @@ class HybridAudioEngine {
     this.onGlobalStepCallback = onGlobalStep;
 
     const newTrackIds = new Set(tracks.map(t => t.id));
+
+    // FIX: Stoppare tutti i synth che stanno suonando (evita glitch quando cambia sequenza)
+    for (const [id, ch] of this.channels) {
+      if (!newTrackIds.has(id)) {
+        try {
+          if (ch.synth instanceof Tone.PolySynth) {
+            ch.synth.triggerRelease();
+          }
+        } catch (e) {
+          console.warn('[AUDIO] Error releasing voices:', e);
+        }
+      }
+    }
+
     for (const [id] of this.currentTracks) {
       if (!newTrackIds.has(id)) this.cleanupTrack(id);
     }
