@@ -1,4 +1,3 @@
-// src/lib/audio-engine-hybrid.ts
 import * as Tone from 'tone';
 import { Track, INSTRUMENTS, InstrumentType, POLYPHONY_CONFIG, SAFE_MODE_CONFIG } from './constants';
 
@@ -13,9 +12,15 @@ interface ChannelStrip {
   volume: Tone.Volume;
 }
 
+interface PartState {
+  stepCount: number;
+  stepsHash: string;
+}
+
 class HybridAudioEngine {
   private channels: Map<string, ChannelStrip> = new Map();
   private parts: Map<string, Tone.Part> = new Map();
+  private partStates: Map<string, PartState> = new Map();
   private currentTracks: Map<string, Track> = new Map();
   private masterLoop: Tone.Loop | null = null;
   private masterLimiter: Tone.Limiter | null = null;
@@ -32,6 +37,75 @@ class HybridAudioEngine {
     this.recorder = new Tone.Recorder();
     this.masterLimiter.connect(this.recorder);
     this.isInitialized = true;
+    console.log('[AUDIO] Engine initialized, recreating parts for', this.currentTracks.size, 'tracks');
+
+    // FIX: Se ci sono track in sospeso, ricreali ora che l'engine è inizializzato
+    if (this.currentTracks.size > 0) {
+      const tracks = Array.from(this.currentTracks.values());
+      this.recreateAllParts(tracks);
+    }
+  }
+
+  private recreateAllParts(tracks: Track[]): void {
+    tracks.forEach(track => {
+      const ch = this.getOrCreateChannel(track.id, track.instrument);
+      if (!ch) return;
+
+      const stepCount = Math.max(1, Math.min(32, track.stepCount || 16));
+      const existingPart = this.parts.get(track.id);
+
+      if (existingPart) {
+        existingPart.mute = track.muted;
+        return; // Parte già esiste, non ricrearlo
+      }
+
+      const events = Array.from({ length: stepCount }, (_, i) => ({ time: `0:${i}:0`, stepIdx: i }));
+      const trackId = track.id;
+
+      const part = new Tone.Part((time, event) => {
+        const currentTrack = this.currentTracks.get(trackId);
+        if (!currentTrack || currentTrack.muted) return;
+
+        if (this.onStepCallback) {
+          Tone.Draw.schedule(() => this.onStepCallback!(trackId, event.stepIdx), time);
+        }
+
+        const step = currentTrack.steps[event.stepIdx];
+        if (step && step.active) {
+          const instDef = INSTRUMENTS.find(i => i.id === currentTrack.instrument);
+          const channel = this.channels.get(trackId);
+          if (channel && instDef) {
+            const noteToPlay = step.note || instDef.defaultNote || 'C2';
+            const velocity = (step.velocity ?? 100) / 100;
+            const synth = channel.synth;
+            try {
+              if (synth instanceof Tone.MembraneSynth) {
+                synth.triggerAttackRelease(noteToPlay, '8n', time, velocity);
+              } else if (synth instanceof Tone.NoiseSynth) {
+                synth.triggerAttackRelease('8n', time, velocity);
+              } else if (synth instanceof Tone.MetalSynth) {
+                synth.triggerAttackRelease(noteToPlay, '16n', time, velocity);
+              } else if (synth instanceof Tone.PolySynth) {
+                synth.triggerAttackRelease(noteToPlay, '8n', time, velocity);
+              } else if (synth instanceof Tone.Synth) {
+                synth.triggerAttackRelease(noteToPlay, '8n', time, velocity);
+              }
+            } catch (e) {}
+          }
+        }
+      }, events);
+
+      part.loop = true;
+      part.loopEnd = `0:${stepCount}:0`;
+      part.mute = track.muted;
+
+      this.parts.set(track.id, part);
+      this.partStates.set(track.id, {
+        stepCount,
+        stepsHash: this.getStepsHash(track.steps)
+      });
+      console.log(`[AUDIO] Part created during init for track ${track.id} with ${stepCount} steps`);
+    });
   }
 
   public async start(): Promise<void> {
@@ -42,15 +116,39 @@ class HybridAudioEngine {
     Tone.Transport.position = 0;
     Tone.Transport.start();
     this.isRunning = true;
-    this.parts.forEach(part => part.start(0));
-    if (this.masterLoop) this.masterLoop.start(0);
+    this.parts.forEach(part => {
+      try {
+        if (!part.started) part.start(0);
+      } catch (e) {
+        console.warn('[AUDIO] Error starting part:', e);
+      }
+    });
+    if (this.masterLoop) {
+      try {
+        if (!this.masterLoop.running) this.masterLoop.start(0);
+      } catch (e) {
+        console.warn('[AUDIO] Error starting master loop:', e);
+      }
+    }
   }
 
   public stop(): void {
     Tone.Transport.stop();
     Tone.Transport.position = 0;
-    this.parts.forEach(part => part.stop());
-    if (this.masterLoop) this.masterLoop.stop();
+    this.parts.forEach(part => {
+      try {
+        part.stop();
+      } catch (e) {
+        console.warn('[AUDIO] Error stopping part:', e);
+      }
+    });
+    if (this.masterLoop) {
+      try {
+        this.masterLoop.stop();
+      } catch (e) {
+        console.warn('[AUDIO] Error stopping master loop:', e);
+      }
+    }
     this.isRunning = false;
   }
 
@@ -128,15 +226,28 @@ class HybridAudioEngine {
     return newChannel;
   }
 
+  private getStepsHash(steps: any[]): string {
+    try {
+      return JSON.stringify(steps.map(s => ({ active: s.active, note: s.note, velocity: s.velocity })));
+    } catch {
+      return '';
+    }
+  }
+
   public updateSequence(tracks: Track[], onStep: (trackId: string, step: number) => void, onGlobalStep: (step: number) => void): void {
+    console.log('[AUDIO] updateSequence called with', tracks.length, 'tracks, initialized:', this.isInitialized, 'running:', this.isRunning);
     this.onStepCallback = onStep;
     this.onGlobalStepCallback = onGlobalStep;
+
     const newTrackIds = new Set(tracks.map(t => t.id));
     for (const [id] of this.currentTracks) {
       if (!newTrackIds.has(id)) this.cleanupTrack(id);
     }
     tracks.forEach(t => this.currentTracks.set(t.id, t));
-    if (!this.isInitialized) return;
+    if (!this.isInitialized) {
+      console.log('[AUDIO] Engine not initialized, deferring part creation');
+      return;
+    }
 
     tracks.forEach(track => {
       const ch = this.getOrCreateChannel(track.id, track.instrument);
@@ -151,12 +262,26 @@ class HybridAudioEngine {
 
       const stepCount = Math.max(1, Math.min(32, track.stepCount || 16));
       const existingPart = this.parts.get(track.id);
-      
+      const prevState = this.partStates.get(track.id);
+      const currentStepsHash = this.getStepsHash(track.steps);
+
       if (existingPart) {
         existingPart.mute = track.muted;
       }
 
-      if (!existingPart) {
+      const needsRecreate = !existingPart || !prevState || prevState.stepCount !== stepCount || prevState.stepsHash !== currentStepsHash;
+
+      if (needsRecreate) {
+        console.log(`[AUDIO] Recreating part for track ${track.id} (${track.instrument}): stepCount=${stepCount}, hasSteps=${track.steps.length > 0}`);
+        if (existingPart) {
+          try {
+            existingPart.stop();
+            existingPart.dispose();
+          } catch (e) {
+            console.warn('[AUDIO] Error disposing old part:', e);
+          }
+        }
+
         const events = Array.from({ length: stepCount }, (_, i) => ({ time: `0:${i}:0`, stepIdx: i }));
         const trackId = track.id;
         
@@ -198,10 +323,16 @@ class HybridAudioEngine {
         part.mute = track.muted;
         
         if (this.isRunning) {
-          part.start(0);
+          try {
+            part.start(0);
+          } catch (e) {
+            console.warn('[AUDIO] Error starting new part:', e);
+          }
         }
         
         this.parts.set(track.id, part);
+        this.partStates.set(track.id, { stepCount, stepsHash: currentStepsHash });
+        console.log(`[AUDIO] Part created for track ${track.id} with ${stepCount} steps, started=${this.isRunning}`);
       }
     });
 
@@ -215,7 +346,13 @@ class HybridAudioEngine {
           }, time);
         }
       }, "16n");
-      if (this.isRunning) this.masterLoop.start(0);
+      if (this.isRunning) {
+        try {
+          this.masterLoop.start(0);
+        } catch (e) {
+          console.warn('[AUDIO] Error starting master loop:', e);
+        }
+      }
     }
   }
 
@@ -236,6 +373,7 @@ class HybridAudioEngine {
       try { part.stop(); part.dispose(); } catch (e) {}
       this.parts.delete(trackId);
     }
+    this.partStates.delete(trackId);
     this.currentTracks.delete(trackId);
   }
 
@@ -255,6 +393,7 @@ class HybridAudioEngine {
     }
     this.channels.clear();
     this.parts.clear();
+    this.partStates.clear();
     this.currentTracks.clear();
   }
 

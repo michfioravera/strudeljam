@@ -131,6 +131,7 @@ function App() {
 
   const [currentTrackSteps, setCurrentTrackSteps] = useState<Record<string, number>>({});
   const [globalStep, setGlobalStep] = useState(-1);
+  const [sequenceChangedInCycle, setSequenceChangedInCycle] = useState(false);
 
   const [showCode, setShowCode] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -176,19 +177,38 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (globalStep === SEQUENCER_CONFIG.LAST_STEP_INDEX && playMode === 'all') {
+    if (!isPlaying || playMode !== 'all') return;
+
+    if (globalStep === SEQUENCER_CONFIG.LAST_STEP_INDEX && !sequenceChangedInCycle) {
+      // Cambio sequenza quando raggiungiamo l'ultimo step (15)
       const currentIndex = sequences.findIndex((s) => s.id === activeSequenceId);
       if (currentIndex !== -1) {
         const nextIndex = (currentIndex + 1) % sequences.length;
+        console.log(`[APP] Global step ${globalStep} - switching to next sequence: ${sequences[nextIndex].name}`);
         setActiveSequenceId(sequences[nextIndex].id);
+        setSequenceChangedInCycle(true);
       }
+    } else if (globalStep === 0 && sequenceChangedInCycle) {
+      // FIX: Resetta il flag quando torna a 0 per permettere il prossimo cambio
+      console.log('[APP] Global step 0 - reset sequence change flag for next transition');
+      setSequenceChangedInCycle(false);
     }
-  }, [globalStep, playMode, sequences, activeSequenceId]);
+  }, [globalStep, playMode, sequences, activeSequenceId, sequenceChangedInCycle, isPlaying]);
+
+  // Resetta il flag quando playMode esce da 'all' o quando premi Stop
+  useEffect(() => {
+    if (!isPlaying || playMode !== 'all') {
+      setSequenceChangedInCycle(false);
+      setGlobalStep(-1);
+      console.log('[APP] PlayMode/isPlaying changed, reset flags');
+    }
+  }, [isPlaying, playMode]);
 
   useEffect(() => {
     const tracksSignature = createTracksSignature(playbackTracks);
 
     if (prevTracksSignatureRef.current !== tracksSignature) {
+      console.log('[APP] Tracks signature changed - updating audio sequence with', playbackTracks.length, 'tracks');
       audioEngine.updateSequence(playbackTracks, handleTrackStep, handleGlobalStep);
       prevTracksSignatureRef.current = tracksSignature;
     }
@@ -299,7 +319,7 @@ function App() {
         distortion: 0,
       };
 
-      console.log('[APP] New track:', newTrack.id, 'steps:', newTrack.steps.length);
+      console.log('[APP] New track added:', newTrack.id, 'instrument:', type, 'steps:', newTrack.steps.length);
       setTracks([...displayedTracks, newTrack]);
       setShowAddMenu(false);
     },
