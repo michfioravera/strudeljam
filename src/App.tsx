@@ -186,8 +186,6 @@ function App() {
           console.log(`[APP] Global step ${globalStep} - switching to next sequence: ${sequences[nextIndex].name}`);
           setActiveSequenceId(sequences[nextIndex].id);
           setSequenceChangedInCycle(true);
-          // FIX: Resetta globalStep a 0 per la nuova sequenza
-          setGlobalStep(0);
         }
       }
     }
@@ -197,7 +195,8 @@ function App() {
   useEffect(() => {
     if (playMode !== 'all') {
       setSequenceChangedInCycle(false);
-      console.log('[APP] PlayMode changed from "all", reset sequence change flag');
+      setGlobalStep(-1);
+      console.log('[APP] PlayMode changed from "all", reset sequence change flag and globalStep');
     }
   }, [playMode]);
 
