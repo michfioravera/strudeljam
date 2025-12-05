@@ -195,7 +195,7 @@ function App() {
     const tracksSignature = createTracksSignature(playbackTracks);
 
     if (prevTracksSignatureRef.current !== tracksSignature) {
-      console.log('[APP] Tracks signature changed - updating audio sequence');
+      console.log('[APP] Tracks signature changed - updating audio sequence with', playbackTracks.length, 'tracks');
       audioEngine.updateSequence(playbackTracks, handleTrackStep, handleGlobalStep);
       prevTracksSignatureRef.current = tracksSignature;
     }
