@@ -131,6 +131,7 @@ function App() {
 
   const [currentTrackSteps, setCurrentTrackSteps] = useState<Record<string, number>>({});
   const [globalStep, setGlobalStep] = useState(-1);
+  const lastSequenceIdRef = useRef<string>(activeSequenceId);
 
   const [showCode, setShowCode] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
