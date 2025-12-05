@@ -306,7 +306,7 @@ function App() {
         distortion: 0,
       };
 
-      console.log('[APP] New track:', newTrack.id, 'steps:', newTrack.steps.length);
+      console.log('[APP] New track added:', newTrack.id, 'instrument:', type, 'steps:', newTrack.steps.length);
       setTracks([...displayedTracks, newTrack]);
       setShowAddMenu(false);
     },
