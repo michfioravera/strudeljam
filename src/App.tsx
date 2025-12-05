@@ -177,28 +177,32 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (playMode === 'all' && isPlaying) {
-      // Cambio sequenza solo una volta quando raggiungiamo l'ultimo step
-      if (globalStep === SEQUENCER_CONFIG.LAST_STEP_INDEX && !sequenceChangedInCycle) {
-        const currentIndex = sequences.findIndex((s) => s.id === activeSequenceId);
-        if (currentIndex !== -1) {
-          const nextIndex = (currentIndex + 1) % sequences.length;
-          console.log(`[APP] Global step ${globalStep} - switching to next sequence: ${sequences[nextIndex].name}`);
-          setActiveSequenceId(sequences[nextIndex].id);
-          setSequenceChangedInCycle(true);
-        }
+    if (!isPlaying || playMode !== 'all') return;
+
+    if (globalStep === SEQUENCER_CONFIG.LAST_STEP_INDEX && !sequenceChangedInCycle) {
+      // Cambio sequenza quando raggiungiamo l'ultimo step (15)
+      const currentIndex = sequences.findIndex((s) => s.id === activeSequenceId);
+      if (currentIndex !== -1) {
+        const nextIndex = (currentIndex + 1) % sequences.length;
+        console.log(`[APP] Global step ${globalStep} - switching to next sequence: ${sequences[nextIndex].name}`);
+        setActiveSequenceId(sequences[nextIndex].id);
+        setSequenceChangedInCycle(true);
       }
+    } else if (globalStep === 0 && sequenceChangedInCycle) {
+      // FIX: Resetta il flag quando torna a 0 per permettere il prossimo cambio
+      console.log('[APP] Global step 0 - reset sequence change flag for next transition');
+      setSequenceChangedInCycle(false);
     }
   }, [globalStep, playMode, sequences, activeSequenceId, sequenceChangedInCycle, isPlaying]);
 
-  // Resetta il flag quando playMode esce da 'all'
+  // Resetta il flag quando playMode esce da 'all' o quando premi Stop
   useEffect(() => {
-    if (playMode !== 'all') {
+    if (!isPlaying || playMode !== 'all') {
       setSequenceChangedInCycle(false);
       setGlobalStep(-1);
-      console.log('[APP] PlayMode changed from "all", reset sequence change flag and globalStep');
+      console.log('[APP] PlayMode/isPlaying changed, reset flags');
     }
-  }, [playMode]);
+  }, [isPlaying, playMode]);
 
   useEffect(() => {
     const tracksSignature = createTracksSignature(playbackTracks);
