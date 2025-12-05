@@ -178,11 +178,15 @@ function App() {
 
   useEffect(() => {
     if (globalStep === SEQUENCER_CONFIG.LAST_STEP_INDEX && playMode === 'all') {
-      const currentIndex = sequences.findIndex((s) => s.id === activeSequenceId);
-      if (currentIndex !== -1) {
-        const nextIndex = (currentIndex + 1) % sequences.length;
-        console.log(`[APP] Global step ${globalStep} - switching to next sequence: ${sequences[nextIndex].name}`);
-        setActiveSequenceId(sequences[nextIndex].id);
+      // FIX: Solo cambia sequenza se quella corrente è diversa dall'ultima che abbiamo visto
+      if (lastSequenceIdRef.current === activeSequenceId) {
+        const currentIndex = sequences.findIndex((s) => s.id === activeSequenceId);
+        if (currentIndex !== -1) {
+          const nextIndex = (currentIndex + 1) % sequences.length;
+          console.log(`[APP] Global step ${globalStep} - switching to next sequence: ${sequences[nextIndex].name}`);
+          setActiveSequenceId(sequences[nextIndex].id);
+          lastSequenceIdRef.current = sequences[nextIndex].id;
+        }
       }
     }
   }, [globalStep, playMode, sequences, activeSequenceId]);
