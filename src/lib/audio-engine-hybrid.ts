@@ -240,18 +240,21 @@ class HybridAudioEngine {
     this.onGlobalStepCallback = onGlobalStep;
 
     const newTrackIds = new Set(tracks.map(t => t.id));
+    const tracksChanged = this.currentTracks.size !== tracks.length ||
+      Array.from(this.currentTracks.keys()).some(id => !newTrackIds.has(id));
 
-    // FIX: Stoppare tutti i synth che stanno suonando (evita glitch quando cambia sequenza)
-    for (const [id, ch] of this.channels) {
-      if (!newTrackIds.has(id)) {
-        try {
-          if (ch.synth instanceof Tone.PolySynth) {
-            ch.synth.triggerRelease();
-          }
-        } catch (e) {
-          console.warn('[AUDIO] Error releasing voices:', e);
-        }
+    // FIX: Se le tracce sono cambiate (cambio sequenza), muta momentaneamente per evitare glitch
+    if (tracksChanged && this.isRunning) {
+      console.log('[AUDIO] Tracks changed - muting all channels briefly to avoid glitch');
+      for (const [, ch] of this.channels) {
+        ch.volume.volume.rampTo(-100, 0.05);
       }
+      setTimeout(() => {
+        for (const [, ch] of this.channels) {
+          // Resetta il volume (sarà riimpostato nella loop successiva)
+          // ch.volume.volume.rampTo(ch.volume.volume.value, 0.05);
+        }
+      }, 50);
     }
 
     for (const [id] of this.currentTracks) {
