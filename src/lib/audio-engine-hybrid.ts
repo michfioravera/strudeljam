@@ -166,15 +166,19 @@ class HybridAudioEngine {
   }
 
   public updateSequence(tracks: Track[], onStep: (trackId: string, step: number) => void, onGlobalStep: (step: number) => void): void {
+    console.log('[AUDIO] updateSequence called with', tracks.length, 'tracks, initialized:', this.isInitialized, 'running:', this.isRunning);
     this.onStepCallback = onStep;
     this.onGlobalStepCallback = onGlobalStep;
-    
+
     const newTrackIds = new Set(tracks.map(t => t.id));
     for (const [id] of this.currentTracks) {
       if (!newTrackIds.has(id)) this.cleanupTrack(id);
     }
     tracks.forEach(t => this.currentTracks.set(t.id, t));
-    if (!this.isInitialized) return;
+    if (!this.isInitialized) {
+      console.log('[AUDIO] Engine not initialized, deferring part creation');
+      return;
+    }
 
     tracks.forEach(track => {
       const ch = this.getOrCreateChannel(track.id, track.instrument);
