@@ -177,7 +177,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (playMode === 'all') {
+    if (playMode === 'all' && isPlaying) {
       // Cambio sequenza solo una volta quando raggiungiamo l'ultimo step
       if (globalStep === SEQUENCER_CONFIG.LAST_STEP_INDEX && !sequenceChangedInCycle) {
         const currentIndex = sequences.findIndex((s) => s.id === activeSequenceId);
@@ -186,15 +186,20 @@ function App() {
           console.log(`[APP] Global step ${globalStep} - switching to next sequence: ${sequences[nextIndex].name}`);
           setActiveSequenceId(sequences[nextIndex].id);
           setSequenceChangedInCycle(true);
+          // FIX: Resetta globalStep a 0 per la nuova sequenza
+          setGlobalStep(0);
         }
       }
-      // Resetta il flag quando torna a step 0 per permettere il prossimo cambio
-      if (globalStep === 0 && sequenceChangedInCycle) {
-        console.log('[APP] Global step 0 - reset sequence change flag');
-        setSequenceChangedInCycle(false);
-      }
     }
-  }, [globalStep, playMode, sequences, activeSequenceId, sequenceChangedInCycle]);
+  }, [globalStep, playMode, sequences, activeSequenceId, sequenceChangedInCycle, isPlaying]);
+
+  // Resetta il flag quando playMode esce da 'all'
+  useEffect(() => {
+    if (playMode !== 'all') {
+      setSequenceChangedInCycle(false);
+      console.log('[APP] PlayMode changed from "all", reset sequence change flag');
+    }
+  }, [playMode]);
 
   useEffect(() => {
     const tracksSignature = createTracksSignature(playbackTracks);
