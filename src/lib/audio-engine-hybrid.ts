@@ -203,6 +203,7 @@ class HybridAudioEngine {
       const needsRecreate = !existingPart || !prevState || prevState.stepCount !== stepCount || prevState.stepsHash !== currentStepsHash;
 
       if (needsRecreate) {
+        console.log(`[AUDIO] Recreating part for track ${track.id} (${track.instrument}): stepCount=${stepCount}, hasSteps=${track.steps.length > 0}`);
         if (existingPart) {
           try {
             existingPart.stop();
