@@ -263,6 +263,7 @@ class HybridAudioEngine {
         
         this.parts.set(track.id, part);
         this.partStates.set(track.id, { stepCount, stepsHash: currentStepsHash });
+        console.log(`[AUDIO] Part created for track ${track.id} with ${stepCount} steps, started=${this.isRunning}`);
       }
     });
 
