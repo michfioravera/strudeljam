@@ -1,4 +1,3 @@
-// src/lib/audio-engine-hybrid.ts
 import * as Tone from 'tone';
 import { Track, INSTRUMENTS, InstrumentType, POLYPHONY_CONFIG, SAFE_MODE_CONFIG } from './constants';
 
@@ -13,9 +12,15 @@ interface ChannelStrip {
   volume: Tone.Volume;
 }
 
+interface PartState {
+  stepCount: number;
+  stepsHash: string;
+}
+
 class HybridAudioEngine {
   private channels: Map<string, ChannelStrip> = new Map();
   private parts: Map<string, Tone.Part> = new Map();
+  private partStates: Map<string, PartState> = new Map();
   private currentTracks: Map<string, Track> = new Map();
   private masterLoop: Tone.Loop | null = null;
   private masterLimiter: Tone.Limiter | null = null;
@@ -42,15 +47,39 @@ class HybridAudioEngine {
     Tone.Transport.position = 0;
     Tone.Transport.start();
     this.isRunning = true;
-    this.parts.forEach(part => part.start(0));
-    if (this.masterLoop) this.masterLoop.start(0);
+    this.parts.forEach(part => {
+      try {
+        if (!part.started) part.start(0);
+      } catch (e) {
+        console.warn('[AUDIO] Error starting part:', e);
+      }
+    });
+    if (this.masterLoop) {
+      try {
+        if (!this.masterLoop.running) this.masterLoop.start(0);
+      } catch (e) {
+        console.warn('[AUDIO] Error starting master loop:', e);
+      }
+    }
   }
 
   public stop(): void {
     Tone.Transport.stop();
     Tone.Transport.position = 0;
-    this.parts.forEach(part => part.stop());
-    if (this.masterLoop) this.masterLoop.stop();
+    this.parts.forEach(part => {
+      try {
+        part.stop();
+      } catch (e) {
+        console.warn('[AUDIO] Error stopping part:', e);
+      }
+    });
+    if (this.masterLoop) {
+      try {
+        this.masterLoop.stop();
+      } catch (e) {
+        console.warn('[AUDIO] Error stopping master loop:', e);
+      }
+    }
     this.isRunning = false;
   }
 
@@ -128,9 +157,18 @@ class HybridAudioEngine {
     return newChannel;
   }
 
+  private getStepsHash(steps: any[]): string {
+    try {
+      return JSON.stringify(steps.map(s => ({ active: s.active, note: s.note, velocity: s.velocity })));
+    } catch {
+      return '';
+    }
+  }
+
   public updateSequence(tracks: Track[], onStep: (trackId: string, step: number) => void, onGlobalStep: (step: number) => void): void {
     this.onStepCallback = onStep;
     this.onGlobalStepCallback = onGlobalStep;
+    
     const newTrackIds = new Set(tracks.map(t => t.id));
     for (const [id] of this.currentTracks) {
       if (!newTrackIds.has(id)) this.cleanupTrack(id);
@@ -151,12 +189,25 @@ class HybridAudioEngine {
 
       const stepCount = Math.max(1, Math.min(32, track.stepCount || 16));
       const existingPart = this.parts.get(track.id);
-      
+      const prevState = this.partStates.get(track.id);
+      const currentStepsHash = this.getStepsHash(track.steps);
+
       if (existingPart) {
         existingPart.mute = track.muted;
       }
 
-      if (!existingPart) {
+      const needsRecreate = !existingPart || !prevState || prevState.stepCount !== stepCount || prevState.stepsHash !== currentStepsHash;
+
+      if (needsRecreate) {
+        if (existingPart) {
+          try {
+            existingPart.stop();
+            existingPart.dispose();
+          } catch (e) {
+            console.warn('[AUDIO] Error disposing old part:', e);
+          }
+        }
+
         const events = Array.from({ length: stepCount }, (_, i) => ({ time: `0:${i}:0`, stepIdx: i }));
         const trackId = track.id;
         
@@ -198,10 +249,15 @@ class HybridAudioEngine {
         part.mute = track.muted;
         
         if (this.isRunning) {
-          part.start(0);
+          try {
+            part.start(0);
+          } catch (e) {
+            console.warn('[AUDIO] Error starting new part:', e);
+          }
         }
         
         this.parts.set(track.id, part);
+        this.partStates.set(track.id, { stepCount, stepsHash: currentStepsHash });
       }
     });
 
@@ -215,7 +271,13 @@ class HybridAudioEngine {
           }, time);
         }
       }, "16n");
-      if (this.isRunning) this.masterLoop.start(0);
+      if (this.isRunning) {
+        try {
+          this.masterLoop.start(0);
+        } catch (e) {
+          console.warn('[AUDIO] Error starting master loop:', e);
+        }
+      }
     }
   }
 
@@ -236,6 +298,7 @@ class HybridAudioEngine {
       try { part.stop(); part.dispose(); } catch (e) {}
       this.parts.delete(trackId);
     }
+    this.partStates.delete(trackId);
     this.currentTracks.delete(trackId);
   }
 
@@ -255,6 +318,7 @@ class HybridAudioEngine {
     }
     this.channels.clear();
     this.parts.clear();
+    this.partStates.clear();
     this.currentTracks.clear();
   }
 
