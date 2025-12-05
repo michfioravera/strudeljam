@@ -180,6 +180,7 @@ function App() {
       const currentIndex = sequences.findIndex((s) => s.id === activeSequenceId);
       if (currentIndex !== -1) {
         const nextIndex = (currentIndex + 1) % sequences.length;
+        console.log(`[APP] Global step ${globalStep} - switching to next sequence: ${sequences[nextIndex].name}`);
         setActiveSequenceId(sequences[nextIndex].id);
       }
     }
