@@ -4,7 +4,7 @@
   "entryPoints": ["src"],
   "entryPointStrategy": "expand",
   "out": "public/docs",
-  "plugin": ["./typedoc-plugin.cjs"],
+  "plugin": ["./typedoc-plugin.cjs", "./typedoc-plugin-italian.cjs"],
   "exclude": [
     "**/*.test.ts",
     "**/*.test.tsx",
