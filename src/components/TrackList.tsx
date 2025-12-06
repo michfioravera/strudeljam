@@ -4,6 +4,7 @@ import { Track, INSTRUMENTS, InstrumentType, Step, SEQUENCER_CONFIG } from '../l
 import { Volume2, VolumeX, Trash2, Music, Sliders, Grid3X3, ChevronDown } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useSingleClickOutside } from '../hooks/useClickOutside';
+import ReactDOM from 'react-dom';
 
 interface TrackListProps {
   tracks: Track[];
@@ -79,33 +80,18 @@ const StepEditor: React.FC<StepEditorProps> = React.memo(
     const popoverRef = useRef<HTMLDivElement>(null);
     const { noteName, octave } = parseNote(step.note);
 
+    // Chiude cliccando fuori
     useSingleClickOutside(popoverRef, onClose, true);
 
-    const handleNoteNameChange = useCallback(
-      (e: React.ChangeEvent<HTMLSelectElement>) => {
-        onUpdateNote(`${e.target.value}${octave}`);
-      },
-      [octave, onUpdateNote]
-    );
-
-    const handleOctaveChange = useCallback(
-      (e: React.ChangeEvent<HTMLSelectElement>) => {
-        onUpdateNote(`${noteName}${e.target.value}`);
-      },
-      [noteName, onUpdateNote]
-    );
-
-    const handleVelocityChange = useCallback(
-      (e: React.ChangeEvent<HTMLInputElement>) => {
-        onUpdateVelocity(parseInt(e.target.value));
-      },
-      [onUpdateVelocity]
-    );
-
-    return (
+    const content = (
       <div
         ref={popoverRef}
-        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 max-w-[90vw] overflow-hidden z-50 bg-slate-800 border border-slate-600 shadow-2xl rounded-lg p-3 w-48 animate-in fade-in zoom-in-95 duration-100"
+        className="fixed z-[9999] bg-slate-800 border border-slate-600 shadow-2xl rounded-lg p-3 w-48 animate-in fade-in zoom-in-95 duration-100"
+        style={{
+          top: 'calc(var(--step-editor-y, 0px) - 10px)',
+          left: 'var(--step-editor-x, 0px)',
+          transform: 'translate(-50%, -100%)'
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-2 pb-2 border-b border-slate-700">
@@ -124,28 +110,25 @@ const StepEditor: React.FC<StepEditorProps> = React.memo(
           <select
             className="bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded p-1 flex-1 focus:border-cyan-500 outline-none"
             value={noteName}
-            onChange={handleNoteNameChange}
+            onChange={(e) => onUpdateNote(`${e.target.value}${octave}`)}
           >
             {NOTES.map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
+              <option key={n} value={n}>{n}</option>
             ))}
           </select>
+
           <select
             className="bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded p-1 w-14 focus:border-cyan-500 outline-none"
             value={octave}
-            onChange={handleOctaveChange}
+            onChange={(e) => onUpdateNote(`${noteName}${e.target.value}`)}
           >
             {OCTAVES.map((o) => (
-              <option key={o} value={o}>
-                {o}
-              </option>
+              <option key={o} value={o}>{o}</option>
             ))}
           </select>
         </div>
 
-        {/* Velocity Control */}
+        {/* Velocity */}
         <div className="flex flex-col gap-1">
           <div className="flex justify-between text-[10px] text-slate-400 font-bold uppercase">
             <span>Velocità</span>
@@ -156,14 +139,14 @@ const StepEditor: React.FC<StepEditorProps> = React.memo(
             min={SEQUENCER_CONFIG.MIN_VELOCITY}
             max={SEQUENCER_CONFIG.MAX_VELOCITY}
             value={step.velocity ?? SEQUENCER_CONFIG.DEFAULT_VELOCITY}
-            onChange={handleVelocityChange}
+            onChange={(e) => onUpdateVelocity(parseInt(e.target.value))}
             className="w-full h-1.5 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-green-500"
           />
         </div>
-
-                <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-8 border-transparent border-t-slate-800" />
       </div>
     );
+
+    return ReactDOM.createPortal(content, document.body);
   }
 );
 
@@ -408,6 +391,13 @@ const TrackRow: React.FC<TrackRowProps> = React.memo(
     onClearStep,
     onChangeInstrument,
   }) => {
+    const openStepEditorAt = (idx: number, e: React.MouseEvent) => {
+      const rect = (e.target as HTMLElement).getBoundingClientRect();
+      document.body.style.setProperty('--step-editor-x', `${rect.left + rect.width/2}px`);
+      document.body.style.setProperty('--step-editor-y', `${rect.top}px`);
+      onStepClick(idx, e); // apre l’editor
+    };
+
     const instDef = useMemo(
       () => INSTRUMENTS.find((i) => i.id === track.instrument),
       [track.instrument]
@@ -532,15 +522,16 @@ const TrackRow: React.FC<TrackRowProps> = React.memo(
           </div>
 
           {/* Sequencer Grid */}
-          <div className="w-full relative overflow-x-auto">
-            <div
-              className="grid gap-1"
-              style={{
-                gridTemplateColumns: `repeat(${stepCount}, 40px)`,
-                width: `${stepCount * 40}px`,
-                maxWidth: "100%",
-              }}
-            >
+          <div className="w-full relative">
+            <div className="overflow-x-auto">
+              <div
+                className="grid gap-1"
+                style={{
+                  gridTemplateColumns: `repeat(${stepCount}, 40px)`,
+                  width: `${stepCount * 40}px`,
+                  maxWidth: "100%",
+                }}
+              >
               {track.steps.slice(0, stepCount).map((step, idx) => (
                 <div key={idx} className="relative">
                   <StepButton
@@ -548,9 +539,10 @@ const TrackRow: React.FC<TrackRowProps> = React.memo(
                     index={idx}
                     isCurrentStep={currentStep === idx}
                     instDef={instDef}
-                    onClick={(e) => onStepClick(idx, e)}
+                    onClick={(e) => openStepEditorAt(idx, e)}
                   />
-
+                  </div>
+            </div>
                   {/* Step Editor Popover */}
                   {editingStepIndex === idx && (
                     <StepEditor
@@ -561,7 +553,7 @@ const TrackRow: React.FC<TrackRowProps> = React.memo(
                       onClose={onCloseStepEditor}
                     />
                   )}
-                </div>
+                
               ))}
             </div>
           </div>
