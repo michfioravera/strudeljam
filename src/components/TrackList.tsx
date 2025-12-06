@@ -532,11 +532,13 @@ const TrackRow: React.FC<TrackRowProps> = React.memo(
           </div>
 
           {/* Sequencer Grid */}
-          <div className="w-full relative">
+          <div className="w-full relative overflow-x-auto">
             <div
-              className="grid gap-1 w-full md:w-auto"
+              className="grid gap-1"
               style={{
-                gridTemplateColumns: `repeat(${stepCount}, minmax(0, 1fr))`,
+                gridTemplateColumns: `repeat(${stepCount}, 40px)`,
+                width: `${stepCount * 40}px`,
+                maxWidth: "100%",
               }}
             >
               {track.steps.slice(0, stepCount).map((step, idx) => (
