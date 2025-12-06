@@ -31,7 +31,7 @@
 
 - **useAudioEngine**: Hook per interfacciarsi con l'audio engine
 - **useClickOutside**: Gestione click fuori dai popup
-- **useDeepCompareMemo**: Memoizzazione con confronto profondo
+- **useDeepCompareMemo**: Memorizzazione con confronto profondo
 
 ### Utilità
 
