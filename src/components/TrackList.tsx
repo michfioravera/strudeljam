@@ -159,6 +159,13 @@ interface InstrumentSelectorProps {
   onClose: () => void;
 }
 
+// Instrument Selector Component (PORTAL)
+interface InstrumentSelectorProps {
+  currentInstrument: InstrumentType;
+  onSelect: (type: InstrumentType) => void;
+  onClose: () => void;
+}
+
 const InstrumentSelector: React.FC<InstrumentSelectorProps> = React.memo(
   ({ currentInstrument, onSelect, onClose }) => {
     const selectorRef = useRef<HTMLDivElement>(null);
@@ -167,10 +174,14 @@ const InstrumentSelector: React.FC<InstrumentSelectorProps> = React.memo(
 
     const categories = useMemo(() => ['Casse', 'Sintetizzatori', 'Rumori'] as const, []);
 
-    return (
+    const content = (
       <div
         ref={selectorRef}
-        className="absolute top-12 left-0 z-50 bg-slate-800 border border-slate-600 shadow-2xl rounded-xl w-64 max-h-80 overflow-y-auto custom-scrollbar p-2 animate-in fade-in slide-in-from-top-2"
+        className="fixed z-[9999] bg-slate-800 border border-slate-600 shadow-2xl rounded-xl w-64 max-h-80 overflow-y-auto custom-scrollbar p-2 animate-in fade-in zoom-in-95 duration-100"
+        style={{
+          top: 'var(--instrument-selector-y, 0px)',
+          left: 'var(--instrument-selector-x, 0px)',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="text-xs font-bold text-slate-500 px-2 py-1 uppercase">
@@ -205,6 +216,8 @@ const InstrumentSelector: React.FC<InstrumentSelectorProps> = React.memo(
         ))}
       </div>
     );
+
+    return ReactDOM.createPortal(content, document.body);
   }
 );
 
@@ -395,7 +408,7 @@ const TrackRow: React.FC<TrackRowProps> = React.memo(
       const rect = (e.target as HTMLElement).getBoundingClientRect();
       document.body.style.setProperty('--step-editor-x', `${rect.left + rect.width/2}px`);
       document.body.style.setProperty('--step-editor-y', `${rect.top}px`);
-      onStepClick(idx, e); // apre l’editor
+      onStepClick(idx, e);
     };
 
     const instDef = useMemo(
@@ -413,7 +426,6 @@ const TrackRow: React.FC<TrackRowProps> = React.memo(
         );
         let newSteps = [...track.steps];
 
-        // Ensure we have 32 steps
         if (newSteps.length < SEQUENCER_CONFIG.MAX_STEPS) {
           while (newSteps.length < SEQUENCER_CONFIG.MAX_STEPS) {
             newSteps.push({
@@ -482,22 +494,22 @@ const TrackRow: React.FC<TrackRowProps> = React.memo(
             )}
 
             <div className="flex-1 min-w-0">
-                        <div className="flex flex-row gap-2 items-center">
-            
-          <button
-              onClick={handleRemove}
-              className="p-1 text-slate-500 hover:text-red-400 hover:bg-slate-700/50 rounded-full transition flex flex-col items-center gap-1"
-              title="Elimina"
-            >
-              <Trash2 size={11} />
-            </button><button
-                onClick={onToggleInstrumentSelector}
-                className="text-slate-100 font-medium truncate hover:text-cyan-400 transition-colors flex items-center gap-1"
-              >
-                {instDef?.name}
-                <ChevronDown size={12} className="opacity-50" />
-                
-              </button></div>
+              <div className="flex flex-row gap-2 items-center">
+                <button
+                  onClick={handleRemove}
+                  className="p-1 text-slate-500 hover:text-red-400 hover:bg-slate-700/50 rounded-full transition flex flex-col items-center gap-1"
+                  title="Elimina"
+                >
+                  <Trash2 size={11} />
+                </button>
+                <button
+                  onClick={onToggleInstrumentSelector}
+                  className="text-slate-100 font-medium truncate hover:text-cyan-400 transition-colors flex items-center gap-1"
+                >
+                  {instDef?.name}
+                  <ChevronDown size={12} className="opacity-50" />
+                </button>
+              </div>
               <div className="flex items-center gap-2 mt-1">
                 <button
                   onClick={handleMuteToggle}
@@ -541,7 +553,7 @@ const TrackRow: React.FC<TrackRowProps> = React.memo(
                       instDef={instDef}
                       onClick={(e) => openStepEditorAt(idx, e)}
                     />
-          
+
                     {/* Step Editor Popover (PORTAL) */}
                     {editingStepIndex === idx && (
                       <StepEditor
@@ -557,6 +569,7 @@ const TrackRow: React.FC<TrackRowProps> = React.memo(
               </div>
             </div>
           </div>
+        </div>  {/* ← QUESTO MANCAVA! Chiude "Top Row" */}
 
         {/* Mix Controls (Collapsible) */}
         {showMix && (
