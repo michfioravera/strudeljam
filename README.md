@@ -1,72 +1,139 @@
-# Documentazione
+# StrudelJam
 
 **StrudelJam** è un sequencer musicale step-based costruito con React, TypeScript e Tone.js, ispirato alla sintassi di [Strudel](https://strudel.cc/).
 
-## Caratteristiche Principali
+---
 
-- **Sequencer Multi-Traccia**: Supporta fino a 32 step per traccia
-- **17 Strumenti**: Batteria, sintetizzatori e generatori di rumore
-- **Effetti Audio**: Delay, Reverb, Distortion, Pan
-- **Modalità Playback**: Riproduzione singola o sequenziale di tutte le sequenze
-- **Codice Strudel**: Generazione e parsing bidirezionale del codice
-- **Recording**: Registra le tue sessioni in formato WebM
+## Come Funziona
 
-## Architettura
+StrudelJam ti permette di creare musica componendo **pattern ritmici** su una griglia di step (passi). Ogni traccia rappresenta uno strumento e puoi attivare/disattivare i singoli step per creare il tuo beat.
 
-### Componenti principali
+### Concetti Base
 
-- **App.tsx**: Componente principale che gestisce lo stato globale
-- **TrackList**: Visualizzazione e controllo delle tracce
-- **SequenceList**: Gestione delle sequenze multiple
-- **ErrorBoundary**: Gestione degli errori React
+| Concetto | Descrizione |
+|----------|-------------|
+| **Step** | Un singolo "passo" nella sequenza. Può essere attivo (suona) o inattivo (silenzio) |
+| **Traccia** | Una riga di step associata a uno strumento (es. Kick, Snare, Synth) |
+| **Sequenza** | Un insieme di tracce che suonano insieme. Puoi creare più sequenze e concatenarle |
+| **BPM** | Battiti per minuto — la velocità di riproduzione |
 
-### Motore audio
+---
 
-- **audio-engine.ts**: Motore audio ibrido basato su Tone.js
-  - Gestione polyphony intelligente
-  - Hot-swapping delle Parts durante playback
-  - Gain limiting automatico per prevenire clipping
+## Guida Rapida
 
-### Funzioni Hook
+### 1. Aggiungi una Traccia
+Premi il pulsante **+** in basso a destra e scegli uno strumento dal menu.
 
-- **useAudioEngine**: Hook per interfacciarsi con l'audio engine
-- **useClickOutside**: Gestione click fuori dai popup
-- **useDeepCompareMemo**: Memorizzazione con confronto profondo
+### 2. Attiva gli Step
+Clicca sui quadrati della griglia per attivare/disattivare i suoni. Gli step attivi si illuminano.
 
-### Utilità
+### 3. Modifica uno Step
+Clicca su uno step **già attivo** per aprire l'editor:
+- **Nota**: Cambia la nota musicale (C, D, E... e l'ottava)
+- **Velocità**: Regola l'intensità del suono (0-100)
 
-- **strudel-gen.ts**: Generazione e parsing del codice Strudel
-- **constants.ts**: Configurazioni e tipi globali
-- **id.ts**: Generazione ID univoci
+### 4. Avvia la Riproduzione
+Premi **▶ Avvia** nella barra superiore. Lo step corrente viene evidenziato mentre scorre.
 
-## Installazione
+### 5. Regola gli Effetti
+Clicca sull'icona **⚙ Sliders** di una traccia per aprire il pannello effetti:
+- **Panoramica (Pan)**: Sposta il suono tra sinistra e destra
+- **Ritardo (Delay)**: Aggiunge un eco
+- **Riverbero (Reverb)**: Simula uno spazio acustico
+- **Distorsione**: Aggiunge grinta al suono
 
-```bash
-# Installa dipendenze
-npm install
+### 6. Gestisci più Sequenze
+Usa la barra delle sequenze per:
+- **Creare** nuove sequenze (pulsante +)
+- **Duplicare** una sequenza esistente
+- **Rinominare** cliccando sul nome
+- **Eliminare** sequenze non necessarie
 
-# Avvia dev server (con generazione docs)
-npm run dev
+### 7. Modalità di Riproduzione
+- **Singola**: Ripete solo la sequenza attiva
+- **Tutte**: Riproduce tutte le sequenze in ordine, ciclicamente
 
-# Avvia dev server (senza docs)
-npm run dev:no-docs
+---
 
-# Genera solo la documentazione
-npm run docs
-
-# Watch mode per docs
-npm run docs:watch
-
-# Build per produzione
-npm run build
-```
-
-## Sintassi Codice Strudel
-
-Il codice generato segue questo formato:
+## Interfaccia
 
 ```
-// StrudelJam v3.0 - Codice Generato
+┌──────────────────────────────────────────────────────────────┐
+│ [Logo]  STRUDELJAM        BPM [120]  STEPS [16]   ▶  🎤  </> │ ← Header
+├──────────────────────────────────────────────────────────────┤
+│ [Seq A]   [Seq B]   [Seq C]   [+]        [Singola ▼]         │ ← Sequenze
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ⚙  🗑   Kick ▼     [■][□][□][□][■][□][□][□][■]…             │ ← Traccia 1
+│        🔊 ━━━━━━━                                            │
+│                                                              │
+│  ⚙  🗑   Snare ▼    [□][□][■][□][□][□][■][□][□]…             │ ← Traccia 2
+│        🔊 ━━━━━━━                                            │
+│                                                              │
+│  ⚙  🗑   HiHat ▼    [■][■][■][■][■][■][■][■][■]…             │ ← Traccia 3
+│        🔊 ━━━━━━━                                            │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+
+                                                        [+] ← Aggiungi Traccia
+```
+
+
+### Legenda Controlli Traccia
+
+| Icona | Funzione |
+|-------|----------|
+| ⚙ (Sliders) | Apre il pannello effetti e imposta il numero di step |
+| 🗑 (Trash) | Elimina la traccia |
+| Nome ▼ | Cambia lo strumento |
+| 🔊/🔇 | Muta/Smuta la traccia |
+| Slider | Regola il volume |
+
+---
+
+## Strumenti Disponibili
+
+### Casse (Drums)
+
+| Nome | Descrizione |
+|------|-------------|
+| Kick | Cassa classica |
+| Snare | Rullante |
+| HiHat Closed | Charleston chiuso |
+| HiHat Open | Charleston aperto |
+| Clap | Battito di mani |
+| Rim | Colpo sul bordo |
+| Tom Low | Tom basso |
+| Tom Mid | Tom medio |
+| Tom High | Tom alto |
+| Crash | Piatto crash |
+
+### Sintetizzatori
+
+| Nome | Descrizione |
+|------|-------------|
+| Synth Lead | Synth melodico principale |
+| Synth Pad | Synth per accordi/atmosfere |
+| Synth Bass | Basso sintetico |
+| Synth Pluck | Suono pizzicato |
+
+### Rumori
+
+| Nome | Descrizione |
+|------|-------------|
+| White Noise | Rumore bianco |
+| Pink Noise | Rumore rosa |
+| Brown Noise | Rumore marrone |
+
+---
+
+## Codice Strudel
+
+StrudelJam genera automaticamente codice compatibile con [Strudel](https://strudel.cc/). Premi l'icona **</>** per visualizzarlo.
+
+### Esempio di Codice Generato
+
+```strudeljam
 // BPM: 120
 
 setcps(0.5000)
@@ -86,46 +153,123 @@ note("~ ~ D2 ~ ~ ~ D2 ~")
 
 ### Parametri Supportati
 
-- **note()**: Pattern di note (usa `~` per pause)
-- **sound()**: Tipo di strumento
-- **gain()**: Volume (0.0 - 1.0)
-- **pan()**: Bilanciamento stereo (0.0 - 1.0)
-- **delay()**: Effetto delay (0.0 - 1.0)
-- **room()**: Effetto reverb (0.0 - 1.0)
-- **distort()**: Distorsione (0.0 - 1.0)
+| Parametro | Descrizione | Range |
+|-----------|-------------|-------|
+| `note()` | Pattern di note (`~` = pausa) | C0-B8 |
+| `sound()` | Tipo di strumento | — |
+| `gain()` | Volume | 0.0 - 1.0 |
+| `pan()` | Bilanciamento stereo | 0.0 - 1.0 |
+| `delay()` | Effetto delay | 0.0 - 1.0 |
+| `room()` | Effetto reverb | 0.0 - 1.0 |
+| `distort()` | Distorsione | 0.0 - 1.0 |
 
-## Configurazione
 
-### SEQUENCER_CONFIG
-- `STEPS_PER_MEASURE`: 16 (default)
-- `MIN_STEPS`: 1
-- `MAX_STEPS`: 32
-- `MIN_BPM`: 40
-- `MAX_BPM`: 300
+> **Nota**: Puoi modificare il codice e premere "Applica" per aggiornare la UI.
 
-### POLYPHONY_CONFIG
-- `MAX_TOTAL_VOICES`: 32
-- `MAX_VOICES_PER_TRACK`: 8
-- `MAX_ACTIVE_PARTS`: 16
+---
 
-### SAFE_MODE_CONFIG
-- `FILTER_FREQ`: 8000 Hz (low-pass anti-aliasing)
-- `REDUCE_HARMONICS`: true
+## Registrazione
 
-## Debug Mode
+1. Premi l'icona **🎤** per avviare la registrazione
+2. L'icona lampeggia durante la registrazione
+3. Premi di nuovo per fermare e scaricare il file `.webm`
 
-Abilita logging dettagliato in `constants.ts`:
+---
+
+## Scorciatoie
+
+| Tasto | Azione |
+|-------|--------|
+| `Spazio` | Play/Stop (quando non sei in un input) |
+| `Esc` | Chiudi popup/editor |
+| `Enter` | Conferma valore input |
+
+---
+
+## Sviluppo
+
+### Architettura
+
+```
+src/
+├── components/
+│ ├── App.tsx # Componente principale, stato globale
+│ ├── TrackList.tsx # Lista tracce e step editor
+│ ├── SequenceList.tsx # Gestione sequenze
+│ └── ErrorBoundary.tsx # Gestione errori React
+├── hooks/
+│ ├── useAudioEngine.ts # Interfaccia con audio engine
+│ ├── useClickOutside.ts# Gestione click fuori popup
+│ └── useDeepCompareMemo.ts # Memoizzazione profonda
+├── lib/
+│ ├── audio-engine.ts # Motore audio Tone.js
+│ ├── strudel-gen.ts # Generatore/parser codice
+│ └── constants.ts # Configurazioni globali
+└── utils/
+└── id.ts # Generazione ID univoci
+```
+
+### Motore Audio
+
+Il motore audio (`audio-engine.ts`) è basato su Tone.js con:
+- **Gestione polifonia intelligente**: Limita le voci attive per prevenire sovraccarico
+- **Hot-swapping**: Aggiorna le Parts durante la riproduzione senza glitch
+- **Gain limiting**: Previene automaticamente il clipping audio
+
+### Installazione
+
+```bash
+# Clona il repository
+git clone https://github.com/michfioravera/strudeljam.git
+cd strudeljam
+
+# Installa dipendenze
+npm install
+
+# Avvia dev server
+npm run dev
+
+# Build produzione
+npm run build
+```
+
+### Configurazione
+
+``` typescript
+// constants.ts
+
+export const SEQUENCER_CONFIG = {
+  STEPS_PER_MEASURE: 16,  // Step di default
+  MIN_STEPS: 1,
+  MAX_STEPS: 32,
+  MIN_BPM: 40,
+  MAX_BPM: 300,
+};
+
+export const POLYPHONY_CONFIG = {
+  MAX_TOTAL_VOICES: 32,
+  MAX_VOICES_PER_TRACK: 8,
+  MAX_ACTIVE_PARTS: 16,
+};
+```
+
+### Localizzazione Errori
 
 ```typescript
+// constants.ts
 export const DEBUG_CONFIG = {
   ENABLED: true,
   LOG_INTERVAL_MS: 2000,
-} as const;
+};
 ```
+
+---
 
 ## Licenza
 
 AGPL-3.0 - Vedi [LICENSE](https://www.gnu.org/licenses/agpl-3.0.html)
+
+---
 
 ## Collegamenti
 
