@@ -35,15 +35,7 @@ export function generateStrudelCode(tracks: Track[], bpm: number): string {
     let expr = `// Traccia ${index + 1}: ${instDef.name}\n`;
     expr += `note("${pattern}")`;
     expr += `\n  .sound("${getStrudelSound(track.instrument)}")`;
-
-    const activeStepsWithVelocity = activeSteps.filter((s) => s.active);
-    if (activeStepsWithVelocity.length > 0) {
-      const velocities = activeStepsWithVelocity.map((s) => (s.velocity ?? 100) / 100);
-      const avgVelocity = velocities.reduce((a, b) => a + b, 0) / velocities.length;
-      expr += `\n  .gain(${(track.volume * avgVelocity).toFixed(2)})`;
-    } else {
-      expr += `\n  .gain(${track.volume.toFixed(2)})`;
-    }
+    expr += `\n  .gain(${track.volume.toFixed(2)})`;
 
     if (track.pan !== 0) {
       expr += `\n  .pan(${((track.pan + 1) / 2).toFixed(2)})`;
@@ -96,98 +88,160 @@ function getStrudelSound(type: InstrumentType): string {
   return soundMap[type] || 'sine';
 }
 
+/**
+ * Estrae il contenuto tra parentesi, ignorando il tipo di virgolette
+ * Es: note("C3 D3") -> "C3 D3"
+ * Es: .sound("bd") -> "bd"
+ */
+function extractParenContent(text: string, funcName: string): string | null {
+  // Trova "funcName(" 
+  const funcStart = text.indexOf(funcName + '(');
+  if (funcStart === -1) return null;
+  
+  // Trova la prima parentesi aperta dopo il nome funzione
+  const openParen = funcStart + funcName.length;
+  
+  // Trova la parentesi chiusa corrispondente
+  let depth = 1;
+  let i = openParen + 1;
+  while (i < text.length && depth > 0) {
+    if (text[i] === '(') depth++;
+    if (text[i] === ')') depth--;
+    i++;
+  }
+  
+  if (depth !== 0) return null;
+  
+  // Estrai il contenuto tra le parentesi
+  let content = text.substring(openParen + 1, i - 1).trim();
+  
+  // Rimuovi le virgolette (qualsiasi tipo) all'inizio e alla fine
+  content = content.replace(/^["'""''`]+/, '').replace(/["'""''`]+$/, '');
+  
+  return content;
+}
+
+/**
+ * Estrae un numero da una chiamata di metodo
+ * Es: .gain(0.80) -> 0.80
+ */
+function extractNumberParam(text: string, funcName: string): number | null {
+  const content = extractParenContent(text, funcName);
+  if (content === null) return null;
+  
+  const num = parseFloat(content);
+  return isNaN(num) ? null : num;
+}
+
 export function parseStrudelCode(code: string): Partial<Track>[] | null {
+  console.log('[STRUDEL-GEN] === START PARSING ===');
+  console.log('[STRUDEL-GEN] Code length:', code.length);
+  
   try {
     const tracks: Partial<Track>[] = [];
-    // Fix: Match "Traccia" (Italian) instead of "Track"
-    const trackBlocks = code.split(/\/\/ Traccia \d+:/);
-
-    trackBlocks.forEach((block) => {
-      const trimmedBlock = block.trim();
-      if (!trimmedBlock || trimmedBlock.startsWith('// StrudelJam') || trimmedBlock.startsWith('setcps')) {
-        return;
+    
+    // Split per "// Traccia X:" usando regex con flag global
+    const trackRegex = /\/\/\s*Traccia\s+\d+:\s*([^\n]*)\n([\s\S]*?)(?=\/\/\s*Traccia\s+\d+:|$)/gi;
+    let match;
+    
+    while ((match = trackRegex.exec(code)) !== null) {
+      const instrumentName = match[1].trim();
+      const blockContent = match[2].trim();
+      
+      console.log('[STRUDEL-GEN] Found track:', instrumentName);
+      
+      // Controlla se è muted
+      const isMuted = blockContent.includes('DISATTIVATA');
+      
+      // Pulisci il blocco dai commenti se muted
+      let cleanBlock = blockContent;
+      if (isMuted) {
+        cleanBlock = blockContent
+          .split('\n')
+          .map(line => line.replace(/^\/\/\s*/, ''))
+          .join('\n');
       }
-
-      const isMuted = trimmedBlock.includes('// DISATTIVATA');
-      const cleanBlock = trimmedBlock.replace(/\/\/ DISATTIVATA\n?/g, '').replace(/^\/\/ /gm, '');
-
-      // More flexible note pattern matching
-      const noteMatch = cleanBlock.match(/note\s*\(\s*["']([^"']+)["']\s*\)/);
-      if (!noteMatch) {
-        console.warn('[STRUDEL-GEN] No note pattern found in block:', cleanBlock.substring(0, 100));
-        return;
+      
+      // Estrai pattern note usando il nuovo metodo
+      const pattern = extractParenContent(cleanBlock, 'note');
+      if (!pattern) {
+        console.warn('[STRUDEL-GEN] No note() pattern in block');
+        
+        // Debug: mostra i primi caratteri con i loro codici
+        const firstChars = cleanBlock.substring(0, 30);
+        console.log('[STRUDEL-GEN] First 30 chars:', firstChars);
+        console.log('[STRUDEL-GEN] Char codes:', [...firstChars].map(c => c.charCodeAt(0)));
+        continue;
       }
-
-      const pattern = noteMatch[1];
+      
       const notes = pattern.split(/\s+/).filter(n => n.length > 0);
-
-      // More flexible sound matching
-      const soundMatch = cleanBlock.match(/\.sound\s*\(\s*["']([^"']+)["']\s*\)/);
-      const sound = soundMatch ? soundMatch[1] : 'sine';
+      console.log('[STRUDEL-GEN] Notes:', notes.length, '-', notes.slice(0, 6).join(', '));
+      
+      // Estrai sound
+      const sound = extractParenContent(cleanBlock, '.sound') || 'sine';
       const instrument = getInstrumentFromSound(sound);
-
-      // More flexible parameter matching with optional whitespace
-      const gainMatch = cleanBlock.match(/\.gain\s*\(\s*([0-9.]+)\s*\)/);
-      const gain = gainMatch ? parseFloat(gainMatch[1]) : 0.8;
-
-      const panMatch = cleanBlock.match(/\.pan\s*\(\s*([0-9.]+)\s*\)/);
-      const pan = panMatch ? parseFloat(panMatch[1]) * 2 - 1 : 0;
-
-      const delayMatch = cleanBlock.match(/\.delay\s*\(\s*([0-9.]+)\s*\)/);
-      const delay = delayMatch ? Math.round(parseFloat(delayMatch[1]) * 100) : 0;
-
-      const roomMatch = cleanBlock.match(/\.room\s*\(\s*([0-9.]+)\s*\)/);
-      const reverb = roomMatch ? Math.round(parseFloat(roomMatch[1]) * 100) : 0;
-
-      const distortMatch = cleanBlock.match(/\.distort\s*\(\s*([0-9.]+)\s*\)/);
-      const distortion = distortMatch ? Math.round(parseFloat(distortMatch[1]) * 100) : 0;
-
+      console.log('[STRUDEL-GEN] Sound:', sound, '-> Instrument:', instrument);
+      
+      // Estrai parametri numerici
+      const volume = extractNumberParam(cleanBlock, '.gain') ?? 0.8;
+      const panRaw = extractNumberParam(cleanBlock, '.pan');
+      const pan = panRaw !== null ? panRaw * 2 - 1 : 0;
+      const delay = Math.round((extractNumberParam(cleanBlock, '.delay') ?? 0) * 100);
+      const reverb = Math.round((extractNumberParam(cleanBlock, '.room') ?? 0) * 100);
+      const distortion = Math.round((extractNumberParam(cleanBlock, '.distort') ?? 0) * 100);
+      
+      console.log('[STRUDEL-GEN] Params - vol:', volume, 'pan:', pan, 'delay:', delay);
+      
+      // Build steps array
       const steps: Step[] = [];
       const instDef = INSTRUMENTS.find((i) => i.id === instrument);
-
+      const defaultNote = instDef?.defaultNote || 'C3';
+      
       notes.forEach((note) => {
         if (note === '~' || note === '-' || note === '.') {
           steps.push({
             active: false,
-            note: instDef?.defaultNote || 'C3',
+            note: defaultNote,
             velocity: SEQUENCER_CONFIG.DEFAULT_VELOCITY,
           });
         } else {
           steps.push({
             active: true,
             note: note,
-            velocity: Math.round(gain * 100),
+            velocity: SEQUENCER_CONFIG.DEFAULT_VELOCITY,
           });
         }
       });
-
+      
+      // Pad to MAX_STEPS
       while (steps.length < SEQUENCER_CONFIG.MAX_STEPS) {
         steps.push({
           active: false,
-          note: instDef?.defaultNote || 'C3',
+          note: defaultNote,
           velocity: SEQUENCER_CONFIG.DEFAULT_VELOCITY,
         });
       }
-
-      tracks.push({
+      
+      const track: Partial<Track> = {
         id: generateId(),
         instrument,
         stepCount: Math.min(notes.length, SEQUENCER_CONFIG.MAX_STEPS),
         steps,
-        volume: Math.min(1, gain),
+        volume: Math.min(1, Math.max(0, volume)),
         muted: isMuted,
-        pan,
-        delay,
-        reverb,
-        distortion,
-      });
-    });
-
-    if (tracks.length === 0) {
-      console.warn('[STRUDEL-GEN] No tracks parsed from code');
+        pan: Math.min(1, Math.max(-1, pan)),
+        delay: Math.min(100, Math.max(0, delay)),
+        reverb: Math.min(100, Math.max(0, reverb)),
+        distortion: Math.min(100, Math.max(0, distortion)),
+      };
+      
+      console.log('[STRUDEL-GEN] ✓ Track created:', instrument, 'with', track.stepCount, 'steps');
+      tracks.push(track);
     }
-
+    
+    console.log('[STRUDEL-GEN] === PARSING COMPLETE:', tracks.length, 'tracks ===');
     return tracks.length > 0 ? tracks : null;
+    
   } catch (error) {
     console.error('[STRUDEL-GEN] Parse error:', error);
     return null;

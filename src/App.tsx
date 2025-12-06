@@ -76,7 +76,7 @@ const NumberInput: React.FC<NumberInputProps> = React.memo(
     );
 
     return (
-      <div 
+      <div
         className={clsx(
           "relative bg-slate-800 rounded-lg border border-slate-700",
           "group hover:border-slate-600 transition-colors",
@@ -171,6 +171,7 @@ function App() {
   const activeSeqIdRef = useRef(activeSequenceId);
   const playModeRef = useRef(playMode);
   const prevTracksSignatureRef = useRef<string>('');
+  const prevGlobalStepCountRef = useRef<number>(DEFAULT_STEP_COUNT);
 
   useEffect(() => {
     sequencesRef.current = sequences;
@@ -236,12 +237,24 @@ function App() {
   useEffect(() => {
     const tracksSignature = createTracksSignature(playbackTracks);
 
-    if (prevTracksSignatureRef.current !== tracksSignature) {
-      console.log('[APP] Tracks signature changed - updating audio sequence with', playbackTracks.length, 'tracks');
-      audioEngine.updateSequence(playbackTracks, handleTrackStep, handleGlobalStep);
+    // Triggera l'aggiornamento se cambiano le tracce OPPURE il globalStepCount
+    const signatureChanged = prevTracksSignatureRef.current !== tracksSignature;
+    const globalStepCountChanged = prevGlobalStepCountRef.current !== defaultStepCount;
+
+    if (signatureChanged || globalStepCountChanged) {
+      console.log(
+        '[APP] Sequence update triggered:',
+        signatureChanged ? 'tracks changed' : '',
+        globalStepCountChanged ? `globalStepCount: ${prevGlobalStepCountRef.current} -> ${defaultStepCount}` : '',
+        '| tracks:', playbackTracks.length
+      );
+
+      audioEngine.updateSequence(playbackTracks, handleTrackStep, handleGlobalStep, defaultStepCount);
+
       prevTracksSignatureRef.current = tracksSignature;
+      prevGlobalStepCountRef.current = defaultStepCount;
     }
-  }, [playbackTracks, handleTrackStep, handleGlobalStep]);
+  }, [playbackTracks, handleTrackStep, handleGlobalStep, defaultStepCount]);
 
   useEffect(() => {
     const code = generateStrudelCode(displayedTracks, bpm);
@@ -420,6 +433,7 @@ function App() {
     try {
       const parsed = parseStrudelCode(codeContent);
       if (parsed && parsed.length > 0) {
+        displayedTracks.forEach(t => audioEngine.cleanupTrack(t.id));
         const fullTracks: Track[] = parsed.map((p) => {
           const steps: Step[] = createDefaultSteps(p.steps?.[0]?.note || 'C3');
 
@@ -484,9 +498,9 @@ function App() {
           <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
             <div className="flex items-center gap-2">
               {/* Logo: nascosto sotto 34px */}
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                width="32" 
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="32"
                 height="32"
                 className="hidden min-[340px]:block"
               >
@@ -499,7 +513,7 @@ function App() {
                     </feMerge>
                   </filter>
                 </defs>
-                <text x="50%" y="50%" fontSize="36" fontFamily="serif" textAnchor="middle" dominantBaseline="middle" fill="cyan" filter="url(#glow)">
+                <text x="50%" y="50%" fontSize="32" fontFamily="serif" textAnchor="middle" dominantBaseline="middle" fill="cyan" filter="url(#glow)">
                   ꜱᴊ
                 </text>
               </svg>
@@ -682,26 +696,26 @@ function App() {
               />
             </div>
             <div className="flex flex-wrap justify-center sm:justify-between items-center py-2 px-4 text-xs sm:text-sm text-gray-500 border-t border-gray-200 gap-x-4 gap-y-1">
-  <a
-    href="https://www.gnu.org/licenses/agpl-3.0.html"
-    target="_blank"
-    rel="noopener noreferrer"
-    className="hover:underline"
-  >
-    AGPL-3.0
-  </a>
-  <a href="/docs/" target="_blank" rel="noopener noreferrer" className="hover:underline">
-    Documentazione
-  </a>
-  <a
-    href="https://github.com/michfioravera/strudeljam"
-    target="_blank"
-    rel="noopener noreferrer"
-    className="hover:underline"
-  >
-    Sorgente
-  </a>
-</div>
+              <a
+                href="https://www.gnu.org/licenses/agpl-3.0.html"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:underline"
+              >
+                AGPL-3.0
+              </a>
+              <a href="/docs/" target="_blank" rel="noopener noreferrer" className="hover:underline">
+                Documentazione
+              </a>
+              <a
+                href="https://github.com/michfioravera/strudeljam"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:underline"
+              >
+                Sorgente
+              </a>
+            </div>
           </div>
         </main>
       </div>

@@ -50,6 +50,7 @@ interface ChannelStrip {
 
 interface PartState {
   stepCount: number;
+  globalStepCount: number;
 }
 
 interface AudioStats {
@@ -113,44 +114,46 @@ class PolyphonyManager {
 }
 
 // ============================================================================
-// GAIN LIMITER
+// GAIN LIMITER (SIMPLIFIED - NO ACCUMULATION BUG)
 // ============================================================================
 
 class GainLimiter {
-  private gains: Map<string, number> = new Map();
-  private maxGain: number = 1.0;
+  private trackCount: number = 0;
 
-  registerTrack(trackId: string, baseGain: number): void {
-    this.gains.set(trackId, baseGain);
-    this.recalculateNormalization();
+  registerTrack(trackId: string): void {
+    this.trackCount++;
   }
 
   unregisterTrack(trackId: string): void {
-    this.gains.delete(trackId);
-    this.recalculateNormalization();
-  }
-
-  getGain(trackId: string): number {
-    return this.gains.get(trackId) ?? 0.8;
-  }
-
-  private recalculateNormalization(): void {
-    const totalGain = Array.from(this.gains.values()).reduce((a, b) => a + b, 0);
-    if (totalGain > 1.0) {
-      this.maxGain = 1.0 / totalGain;
-    } else {
-      this.maxGain = 1.0;
+    if (this.trackCount > 0) {
+      this.trackCount--;
     }
   }
 
-  getScaledGain(trackId: string): number {
-    const baseGain = this.getGain(trackId);
-    return Math.min(1.0, baseGain * this.maxGain * 0.95);
+  /**
+   * Calcola un fattore di scala basato solo sul numero di tracce attive.
+   * Usa una formula logaritmica per evitare che il volume crolli con molte tracce.
+   * - 1 traccia: 1.0
+   * - 2 tracce: ~0.85
+   * - 4 tracce: ~0.7
+   * - 8 tracce: ~0.6
+   */
+  getScaledGain(trackVolume: number): number {
+    if (this.trackCount <= 1) {
+      return trackVolume;
+    }
+    
+    // Formula logaritmica: 1 / (1 + log2(trackCount) * 0.25)
+    const scaleFactor = 1 / (1 + Math.log2(this.trackCount) * 0.25);
+    return trackVolume * scaleFactor;
   }
 
   reset(): void {
-    this.gains.clear();
-    this.maxGain = 1.0;
+    this.trackCount = 0;
+  }
+
+  getTrackCount(): number {
+    return this.trackCount;
   }
 }
 
@@ -340,7 +343,7 @@ class HybridAudioEngine {
       
       const newSynth = this.createSynth(type);
       newSynth.connect(channel.filter);
-            channel.synth = newSynth;
+      channel.synth = newSynth;
       channel.type = type;
       return channel;
     }
@@ -392,7 +395,7 @@ class HybridAudioEngine {
     };
     
     this.channels.set(trackId, newChannel);
-    this.gainLimiter.registerTrack(trackId, 0.8);
+    this.gainLimiter.registerTrack(trackId);
     
     if (DEBUG_CONFIG.ENABLED) {
       console.log(`[AUDIO] Channel created for track ${trackId} (type: ${type})`);
@@ -406,18 +409,18 @@ class HybridAudioEngine {
   // ============================================================================
 
   /**
-   * Calculate the loopEnd time based on stepCount.
+   * Calculate the loopEnd time based on globalStepCount.
    * 16 steps = 1 measure (1m)
    * 8 steps = half measure (0:2:0)
    * 32 steps = 2 measures (2m)
    * 
-   * Formula: stepCount / 16 measures
+   * Formula: globalStepCount / 16 measures
    */
-  private calculateLoopEnd(stepCount: number): string {
+  private calculateLoopEnd(globalStepCount: number): string {
     // Each step is a 16th note
     // 16 steps = 1 measure = 4 beats
-    // So stepCount steps = stepCount/4 beats = stepCount/16 measures
-    const measures = stepCount / 16;
+    // So globalStepCount steps = globalStepCount/4 beats = globalStepCount/16 measures
+    const measures = globalStepCount / 16;
     
     if (measures === 1) {
       return "1m";
@@ -431,39 +434,42 @@ class HybridAudioEngine {
       // For arbitrary step counts, use ticks for precision
       const PPQ = Transport.PPQ;
       const ticksPerMeasure = PPQ * 4;
-      const totalTicks = Math.round((stepCount / 16) * ticksPerMeasure);
+      const totalTicks = Math.round((globalStepCount / 16) * ticksPerMeasure);
       return `${totalTicks}i`;
     }
   }
 
   /**
    * Calculate tick-based timing for accurate step sequencing.
-   * Uses PPQ (Pulses Per Quarter) for precise sixteenth-note timing.
+   * Scales per-track steps to fit within the global step count.
    * 
-   * IMPORTANT: All steps are 16th notes regardless of stepCount.
-   * stepCount only affects the loop length, not the note spacing.
+   * For a track with stepCount=4 in a global globalStepCount=8:
+   * - Spacing multiplier = 8/4 = 2
+   * - Step positions: [0*2, 1*2, 2*2, 3*2] = [0, 2, 4, 6]
+   * - This stretches the track's 4 steps to fill 8 global steps
    */
-  private calculateStepEvents(stepCount: number): { time: string; stepIdx: number }[] {
+  private calculateStepEvents(trackStepCount: number, globalStepCount: number): { time: string; stepIdx: number }[] {
     const PPQ = Transport.PPQ; // Usually 192
     const ticksPerSixteenth = PPQ / 4; // 16th note = PPQ/4 ticks
+    const spacingMultiplier = globalStepCount / trackStepCount;
     
-    return Array.from({ length: stepCount }, (_, i) => ({
-      time: Math.round(i * ticksPerSixteenth) + "i", // "i" suffix = ticks
+    return Array.from({ length: trackStepCount }, (_, i) => ({
+      time: Math.round(i * spacingMultiplier * ticksPerSixteenth) + "i", // "i" suffix = ticks
       stepIdx: i
     }));
   }
 
-  private createPartForTrack(track: Track): Part | null {
+  private createPartForTrack(track: Track, globalStepCount: number): Part | null {
     const channel = this.channels.get(track.id);
     if (!channel) return null;
     
-    const stepCount = Math.max(1, Math.min(SEQUENCER_CONFIG.MAX_STEPS, track.stepCount || SEQUENCER_CONFIG.STEPS_PER_MEASURE));
-    const events = this.calculateStepEvents(stepCount);
-    const loopEnd = this.calculateLoopEnd(stepCount);
+    const trackStepCount = Math.max(1, Math.min(SEQUENCER_CONFIG.MAX_STEPS, track.stepCount || SEQUENCER_CONFIG.STEPS_PER_MEASURE));
+    const events = this.calculateStepEvents(trackStepCount, globalStepCount);
+    const loopEnd = this.calculateLoopEnd(globalStepCount);
     const trackId = track.id;
     
     if (DEBUG_CONFIG.ENABLED) {
-      console.log(`[AUDIO] Creating Part for ${trackId}: ${stepCount} steps, loopEnd=${loopEnd}, events:`, events.slice(0, 4).map(e => e.time));
+      console.log(`[AUDIO] Creating Part for ${trackId}: ${trackStepCount} steps (global: ${globalStepCount}), loopEnd=${loopEnd}, spacing multiplier=${globalStepCount / trackStepCount}`);
     }
     
     const part = new Part((time, event) => {
@@ -540,11 +546,12 @@ class HybridAudioEngine {
         return; // Part already exists, don't recreate
       }
       
-      const part = this.createPartForTrack(track);
+      const part = this.createPartForTrack(track, this.globalStepCount);
       if (part) {
         this.parts.set(track.id, part);
         this.partStates.set(track.id, {
-          stepCount: track.stepCount || SEQUENCER_CONFIG.STEPS_PER_MEASURE
+          stepCount: track.stepCount || SEQUENCER_CONFIG.STEPS_PER_MEASURE,
+          globalStepCount: this.globalStepCount
         });
         
         if (DEBUG_CONFIG.ENABLED) {
@@ -690,11 +697,17 @@ class HybridAudioEngine {
   public updateSequence(
     tracks: Track[],
     onStep: (trackId: string, step: number) => void,
-    onGlobalStep: (step: number) => void
+    onGlobalStep: (step: number) => void,
+    globalStepCount: number = SEQUENCER_CONFIG.STEPS_PER_MEASURE
   ): void {
     if (DEBUG_CONFIG.ENABLED) {
-      console.log('[AUDIO] updateSequence called with', tracks.length, 'tracks, initialized:', this.isInitialized, 'running:', this.isRunning);
+      console.log('[AUDIO] updateSequence called with', tracks.length, 'tracks, globalStepCount:', globalStepCount, 'initialized:', this.isInitialized, 'running:', this.isRunning);
     }
+    
+    // Store global step count
+    const globalStepCountClamped = Math.max(SEQUENCER_CONFIG.MIN_STEPS, Math.min(SEQUENCER_CONFIG.MAX_STEPS, globalStepCount));
+    const globalStepCountChanged = this.globalStepCount !== globalStepCountClamped;
+    this.globalStepCount = globalStepCountClamped;
     
     this.onStepCallback = onStep;
     this.onGlobalStepCallback = onGlobalStep;
@@ -708,9 +721,6 @@ class HybridAudioEngine {
     }
     
     // === PHASE 2: Update currentTracks map (Source of Truth for Callbacks) ===
-    // This is critical - the Part callback reads from currentTracks dynamically,
-    // so step changes (active/note/velocity) are reflected immediately without
-    // recreating the Part.
     tracks.forEach(t => {
       this.currentTracks.set(t.id, t);
     });
@@ -730,8 +740,8 @@ class HybridAudioEngine {
       if (!ch) return;
       
       // Apply gain normalization
-      const scaledGain = this.gainLimiter.getScaledGain(track.id);
-      const volDb = track.volume <= 0.001 ? -100 : 20 * Math.log10(track.volume * scaledGain);
+      const scaledGain = this.gainLimiter.getScaledGain(track.volume);
+      const volDb = scaledGain <= 0.001 ? -100 : 20 * Math.log10(scaledGain);
       ch.volume.volume.rampTo(volDb, 0.05);
       
       // Pan
@@ -744,10 +754,7 @@ class HybridAudioEngine {
       ch.reverb.wet.value = Math.min(0.5, track.reverb / 100);
       
       // --- B. Sequencer Part Management ---
-      // ONLY recreate Part when stepCount changes, NOT when steps content changes.
-      // Step content (active/note/velocity) is read dynamically from currentTracks.
-      
-      const stepCount = Math.max(1, Math.min(SEQUENCER_CONFIG.MAX_STEPS, track.stepCount || SEQUENCER_CONFIG.STEPS_PER_MEASURE));
+      const trackStepCount = Math.max(1, Math.min(SEQUENCER_CONFIG.MAX_STEPS, track.stepCount || SEQUENCER_CONFIG.STEPS_PER_MEASURE));
       const existingPart = this.parts.get(track.id);
       const prevState = this.partStates.get(track.id);
       
@@ -756,14 +763,14 @@ class HybridAudioEngine {
         existingPart.mute = track.muted;
       }
       
-      // ONLY recreate if stepCount changed (structural change)
-      const needsRecreate = !existingPart || !prevState || prevState.stepCount !== stepCount;
-      
+      // Recreate if trackStepCount changed OR if globalStepCount changed
+      const needsRecreate = !existingPart || !prevState || prevState.stepCount !== trackStepCount || prevState.globalStepCount !== this.globalStepCount;
+
       if (needsRecreate) {
         if (DEBUG_CONFIG.ENABLED) {
-          console.log(`[AUDIO] Recreating part for track ${track.id} (${track.instrument}): stepCount changed from ${prevState?.stepCount || 'none'} to ${stepCount}`);
+          console.log(`[AUDIO] Recreating part for track ${track.id} (${track.instrument}): stepCount=${trackStepCount}, globalStepCount=${this.globalStepCount}`);
         }
-        
+
         // Check polyphony limits before creating new part
         if (this.parts.size >= POLYPHONY_CONFIG.MAX_ACTIVE_PARTS && !existingPart) {
           if (DEBUG_CONFIG.ENABLED) {
@@ -771,19 +778,28 @@ class HybridAudioEngine {
           }
           return;
         }
-        
+
         // Graceful hot-swap of Part during playback
-        if (existingPart) {
-          this.hotSwapPart(track, stepCount);
+        if (existingPart && this.isRunning) {
+          // For global step count changes, use faster swap (don't wait for measure boundary)
+          this.hotSwapPart(track, this.globalStepCount, globalStepCountChanged);
         } else {
-          // No existing part, create new one
-          this.createAndStartPart(track, stepCount);
+          // No existing part or not running, create new one
+          this.createAndStartPart(track, this.globalStepCount);
         }
       }
     });
     
-    // === PHASE 4: Master Loop (Global Step) - Create once ===
-    if (!this.masterLoop && this.isInitialized) {
+    // === PHASE 4: Master Loop (Global Step) - Recreate if globalStepCount changed ===
+    if (globalStepCountChanged || !this.masterLoop) {
+      if (this.masterLoop) {
+        try {
+          this.masterLoop.stop();
+          this.masterLoop.dispose();
+        } catch (e) {
+          if (DEBUG_CONFIG.ENABLED) console.warn('[AUDIO] Error disposing old master loop:', e);
+        }
+      }
       this.createMasterLoop();
     }
     
@@ -793,50 +809,66 @@ class HybridAudioEngine {
 
   /**
    * Hot-swap a Part during playback without losing sync.
-   * This is used when stepCount changes during playback.
+   * @param track Track to swap
+   * @param globalStepCount Current global step count
+   * @param isGlobalChange If true, use immediate swap (faster, for global step count changes). If false, use measure-boundary swap (safer, for individual track changes).
    */
-  private hotSwapPart(track: Track, stepCount: number): void {
+  private hotSwapPart(track: Track, globalStepCount: number, isGlobalChange: boolean = false): void {
     const existingPart = this.parts.get(track.id);
-    
-    // Calculate current position in the loop for sync
-    const transportPosition = Transport.position;
-    
+
     // Create new part first
-    const newPart = this.createPartForTrack({ ...track, stepCount });
+    const newPart = this.createPartForTrack(track, globalStepCount);
     if (!newPart) return;
-    
+
     if (this.isRunning && Transport.state === 'started') {
-      // Schedule the swap to happen at the next measure boundary for clean transition
-      // This prevents audio glitches and keeps things in sync
-      const nextMeasure = this.getNextMeasureBoundary();
-      
-            if (DEBUG_CONFIG.ENABLED) {
-        console.log(`[AUDIO] Hot-swap scheduled for track ${track.id} at ${nextMeasure}, current position: ${transportPosition}`);
-      }
-      
-      // Stop old part at next measure boundary
-      try {
-        existingPart?.stop(nextMeasure);
-      } catch (e) {
-        if (DEBUG_CONFIG.ENABLED) console.warn('[AUDIO] Error scheduling old part stop:', e);
-      }
-      
-      // Start new part at next measure boundary
-      try {
-        newPart.start(nextMeasure);
-      } catch (e) {
-        if (DEBUG_CONFIG.ENABLED) console.warn('[AUDIO] Error scheduling new part start:', e);
-      }
-      
-      // Dispose old part after a delay to ensure clean handoff
-      if (existingPart) {
-        setTimeout(() => {
-          try {
-            existingPart.dispose();
-          } catch (e) {
-            if (DEBUG_CONFIG.ENABLED) console.warn('[AUDIO] Error disposing old part after hot-swap:', e);
-          }
-        }, 500);
+      if (isGlobalChange) {
+        // Fast swap for global step count changes: stop old, start new immediately
+        if (DEBUG_CONFIG.ENABLED) {
+          console.log(`[AUDIO] Fast hot-swap for track ${track.id} (global change)`);
+        }
+
+        try {
+          existingPart?.stop();
+          existingPart?.dispose();
+        } catch (e) {
+          if (DEBUG_CONFIG.ENABLED) console.warn('[AUDIO] Error disposing old part during fast swap:', e);
+        }
+
+        try {
+          newPart.start("+0");
+        } catch (e) {
+          if (DEBUG_CONFIG.ENABLED) console.warn('[AUDIO] Error starting new part during fast swap:', e);
+        }
+      } else {
+        // Slow swap for individual track changes: wait for measure boundary
+        const transportPosition = Transport.position;
+        const nextMeasure = this.getNextMeasureBoundary();
+
+        if (DEBUG_CONFIG.ENABLED) {
+          console.log(`[AUDIO] Measure-boundary hot-swap scheduled for track ${track.id} at ${nextMeasure}, current position: ${transportPosition}`);
+        }
+
+        try {
+          existingPart?.stop(nextMeasure);
+        } catch (e) {
+          if (DEBUG_CONFIG.ENABLED) console.warn('[AUDIO] Error scheduling old part stop:', e);
+        }
+
+        try {
+          newPart.start(nextMeasure);
+        } catch (e) {
+          if (DEBUG_CONFIG.ENABLED) console.warn('[AUDIO] Error scheduling new part start:', e);
+        }
+
+        if (existingPart) {
+          setTimeout(() => {
+            try {
+              existingPart.dispose();
+            } catch (e) {
+              if (DEBUG_CONFIG.ENABLED) console.warn('[AUDIO] Error disposing old part after hot-swap:', e);
+            }
+          }, 500);
+        }
       }
     } else {
       // Transport not running, safe to swap immediately
@@ -848,60 +880,58 @@ class HybridAudioEngine {
           if (DEBUG_CONFIG.ENABLED) console.warn('[AUDIO] Error disposing old part:', e);
         }
       }
-      
+
       try {
         newPart.start(0);
       } catch (e) {
         if (DEBUG_CONFIG.ENABLED) console.warn('[AUDIO] Error starting new part:', e);
       }
     }
-    
+
     // Update maps
     this.parts.set(track.id, newPart);
-    this.partStates.set(track.id, { stepCount });
-    
+    this.partStates.set(track.id, {
+      stepCount: track.stepCount || SEQUENCER_CONFIG.STEPS_PER_MEASURE,
+      globalStepCount
+    });
+
     if (DEBUG_CONFIG.ENABLED) {
-      console.log(`[AUDIO] Part hot-swapped for track ${track.id} with ${stepCount} steps`);
+      console.log(`[AUDIO] Part hot-swapped for track ${track.id}`);
     }
   }
 
   /**
    * Get the next measure boundary for scheduling.
-   * Returns a time string that can be used with js scheduling.
    */
   private getNextMeasureBoundary(): string {
     try {
       const position = Transport.position;
-      // Parse current position (format: "bars:beats:sixteenths")
       const parts = position.toString().split(':');
       const currentBar = parseInt(parts[0]) || 0;
       const currentBeat = parseFloat(parts[1]) || 0;
       const currentSixteenth = parseFloat(parts[2]) || 0;
       
-      // If we're at the very start of a measure, use current position + small offset
       if (currentBeat < 0.1 && currentSixteenth < 0.1) {
         return `+0.05`;
       }
       
-      // Otherwise, schedule for start of next measure
       const nextBar = currentBar + 1;
       return `${nextBar}:0:0`;
     } catch (e) {
       if (DEBUG_CONFIG.ENABLED) console.warn('[AUDIO] Error calculating next measure boundary:', e);
-      return "+1m"; // Fallback: next measure
+      return "+1m";
     }
   }
 
   /**
    * Create and start a new Part for a track.
    */
-  private createAndStartPart(track: Track, stepCount: number): void {
-    const newPart = this.createPartForTrack({ ...track, stepCount });
+  private createAndStartPart(track: Track, globalStepCount: number): void {
+    const newPart = this.createPartForTrack(track, globalStepCount);
     if (!newPart) return;
     
     if (this.isRunning && Transport.state === 'started') {
       try {
-        // Start immediately synced with transport
         newPart.start("+0");
       } catch (e) {
         if (DEBUG_CONFIG.ENABLED) console.warn('[AUDIO] Error starting new part:', e);
@@ -915,38 +945,45 @@ class HybridAudioEngine {
     }
     
     this.parts.set(track.id, newPart);
-    this.partStates.set(track.id, { stepCount });
+    this.partStates.set(track.id, { 
+      stepCount: track.stepCount || SEQUENCER_CONFIG.STEPS_PER_MEASURE,
+      globalStepCount 
+    });
     
     if (DEBUG_CONFIG.ENABLED) {
-      console.log(`[AUDIO] Part created for track ${track.id} with ${stepCount} steps, running=${this.isRunning}`);
+      console.log(`[AUDIO] Part created for track ${track.id}, running=${this.isRunning}`);
     }
   }
 
   /**
    * Create the master loop for global step tracking.
+   * The loop fires at 16th note intervals and cycles through global steps.
    */
   private createMasterLoop(): void {
     let globalStep = 0;
-    
+    const stepCountForLoop = this.globalStepCount;
+
     this.masterLoop = new Loop((time) => {
       if (this.onGlobalStepCallback) {
         Draw.schedule(() => {
           this.onGlobalStepCallback!(globalStep);
-          globalStep = (globalStep + 1) % this.globalStepCount;
+          globalStep = (globalStep + 1) % stepCountForLoop;
         }, time);
       }
     }, "16n"); // 16th note interval
-    
-    if (this.isRunning) {
+
+    this.masterLoop.stop(); // Ensure clean state
+
+    if (this.isRunning && Transport.state === 'started') {
       try {
-        this.masterLoop.start(0);
+        this.masterLoop.start("+0"); // Start immediately, don't wait
       } catch (e) {
         if (DEBUG_CONFIG.ENABLED) console.warn('[AUDIO] Error starting master loop:', e);
       }
     }
-    
+
     if (DEBUG_CONFIG.ENABLED) {
-      console.log('[AUDIO] Master loop created');
+      console.log('[AUDIO] Master loop created with globalStepCount:', stepCountForLoop);
     }
   }
 
@@ -990,7 +1027,6 @@ class HybridAudioEngine {
       
       this.partStates.delete(trackId);
       this.currentTracks.delete(trackId);
-      this.gainLimiter.unregisterTrack(trackId);
       
       if (DEBUG_CONFIG.ENABLED) {
         console.log(`[AUDIO] Track ${trackId} cleaned up`);

@@ -682,7 +682,7 @@ export const TrackList: React.FC<TrackListProps> = ({
       <div className="flex flex-col gap-4 w-full max-w-5xl mx-auto p-4 pb-32">
         <div className="text-center py-20 text-slate-500 border-2 border-dashed border-slate-700 rounded-xl">
           <p className="text-lg">Nessuna Traccia</p>
-          <p className="text-sm mt-2">Seleziona "+" per iniziare a creare musica!</p>
+          <p className="text-sm mt-2">Seleziona "+" per creare musica!</p>
         </div>
       </div>
     );
