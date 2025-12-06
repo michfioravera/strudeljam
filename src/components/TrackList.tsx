@@ -282,7 +282,7 @@ const MixControls: React.FC<MixControlsProps> = React.memo(
   ({ track, stepCount, onUpdateTrack, onStepCountChange }) => {
     return (
       <div className="mt-2 pt-4 border-t border-slate-700/50 grid grid-cols-2 md:grid-cols-5 gap-6 animate-in slide-in-from-top-2 fade-in duration-200">
-        
+
         {/* Step Count Input */}
         <div className="flex flex-col gap-1">
           <div className="flex justify-between text-[10px] text-slate-400 font-bold uppercase items-center">
@@ -406,7 +406,7 @@ const TrackRow: React.FC<TrackRowProps> = React.memo(
   }) => {
     const openStepEditorAt = (idx: number, e: React.MouseEvent) => {
       const rect = (e.target as HTMLElement).getBoundingClientRect();
-      document.body.style.setProperty('--step-editor-x', `${rect.left + rect.width/2}px`);
+      document.body.style.setProperty('--step-editor-x', `${rect.left + rect.width / 2}px`);
       document.body.style.setProperty('--step-editor-y', `${rect.top}px`);
       onStepClick(idx, e);
     };
@@ -535,38 +535,34 @@ const TrackRow: React.FC<TrackRowProps> = React.memo(
 
           {/* Sequencer Grid */}
           <div className="w-full relative">
-            <div className="overflow-x-auto">
-              <div
-                className="grid gap-1"
-                style={{
-                  gridTemplateColumns: `repeat(${stepCount}, 40px)`,
-                  width: `${stepCount * 40}px`,
-                  maxWidth: "100%",
-                }}
-              >
-                {track.steps.slice(0, stepCount).map((step, idx) => (
-                  <div key={idx} className="relative">
-                    <StepButton
-                      step={step}
-                      index={idx}
-                      isCurrentStep={currentStep === idx}
-                      instDef={instDef}
-                      onClick={(e) => openStepEditorAt(idx, e)}
-                    />
+            <div
+              className="grid gap-1"
+              style={{
+                gridTemplateColumns: `repeat(${stepCount}, minmax(0, 1fr))`,
+              }}
+            >
+              {track.steps.slice(0, stepCount).map((step, idx) => (
+                <div key={idx} className="relative">
+                  <StepButton
+                    step={step}
+                    index={idx}
+                    isCurrentStep={currentStep === idx}
+                    instDef={instDef}
+                    onClick={(e) => openStepEditorAt(idx, e)}
+                  />
 
-                    {/* Step Editor Popover (PORTAL) */}
-                    {editingStepIndex === idx && (
-                      <StepEditor
-                        step={step}
-                        onUpdateNote={onUpdateStepNote}
-                        onUpdateVelocity={onUpdateStepVelocity}
-                        onClear={onClearStep}
-                        onClose={onCloseStepEditor}
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
+                  {/* Step Editor Popover (PORTAL) */}
+                  {editingStepIndex === idx && (
+                    <StepEditor
+                      step={step}
+                      onUpdateNote={onUpdateStepNote}
+                      onUpdateVelocity={onUpdateStepVelocity}
+                      onClear={onClearStep}
+                      onClose={onCloseStepEditor}
+                    />
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         </div>  {/* ← QUESTO MANCAVA! Chiude "Top Row" */}
