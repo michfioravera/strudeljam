@@ -1,76 +1,40 @@
 /**
- * Plugin: Italian localization for TypeDoc (Typedoc 0.28+ compatible)
+ * Plugin diagnostico - vediamo le traduzioni esistenti
  */
 
 module.exports = {
   load(app) {
-    app.converter.on("begin", () => {
-      // Verifica sicurezza
-      if (!app.i18n) {
-        console.warn("[Typedoc Italian] i18n non disponibile, impossibile registrare le traduzioni.");
-        return;
+    const i18n = app.internationalization;
+
+    console.log("[DIAG] Lingue supportate:", i18n.getSupportedLanguages());
+    console.log("[DIAG] Locale caricato:", i18n.loadedLocale);
+    console.log("[DIAG] Locales disponibili:", Object.keys(i18n.locales || {}));
+    
+    // Vediamo cosa c'è dentro locales
+    if (i18n.locales) {
+      const firstLocale = Object.keys(i18n.locales)[0];
+      if (firstLocale && i18n.locales[firstLocale]) {
+        console.log("[DIAG] Chiavi della prima lingua (" + firstLocale + "):");
+        const keys = Object.keys(i18n.locales[firstLocale]);
+        console.log("[DIAG] Totale chiavi:", keys.length);
+        console.log("[DIAG] Prime 30 chiavi:", keys.slice(0, 30));
       }
+    }
 
-      // Registrazione traduzioni italiane
-      app.i18n.addTranslations("it", {
-        "theme.default.title": "Documentazione",
-        "theme.default.readme": "Introduzione",
-        "theme.default.index": "Indice",
-
-        "label.readme": "Introduzione",
-        "label.index": "Indice",
-        "label.reference": "Riferimenti",
-        "label.references": "Riferimenti",
-        "label.modules": "Moduli",
-        "label.module": "Modulo",
-        "label.namespaces": "Namespace",
-        "label.namespace": "Namespace",
-        "label.classes": "Classi",
-        "label.class": "Classe",
-        "label.interfaces": "Interfacce",
-        "label.interface": "Interfaccia",
-        "label.enums": "Enum",
-        "label.enum": "Enum",
-        "label.functions": "Funzioni",
-        "label.function": "Funzione",
-        "label.variables": "Variabili",
-        "label.variable": "Variabile",
-        "label.typeAliases": "Alias di Tipo",
-        "label.typeAlias": "Alias di Tipo",
-
-        "label.constructors": "Costruttori",
-        "label.constructor": "Costruttore",
-        "label.properties": "Proprietà",
-        "label.property": "Proprietà",
-        "label.methods": "Metodi",
-        "label.method": "Metodo",
-
-        "label.accessors": "Accessor",
-        "label.getter": "Getter",
-        "label.setter": "Setter",
-
-        "label.signatures": "Firme",
-        "label.parameters": "Parametri",
-        "label.typeParameters": "Parametri di tipo",
-
-        "label.sources": "Sorgente",
-        "label.extends": "Estende",
-        "label.implements": "Implementa",
-
-        "search.placeholder": "Cerca...",
-        "search.noResults": "Nessun risultato trovato.",
-        "search.results": "Risultati della ricerca",
-
-        "theme.default.menu": "Menu",
-        "theme.default.tableOfContents": "Sommario",
-
-        "theme.default.footer": "Generato con TypeDoc",
-      });
-
-      // Imposta lingua italiana di default
-      app.i18n.setDefaultLanguage("it");
-
-      console.log("[Typedoc Italian] Traduzione italiana caricata con successo.");
+    // Proviamo ad aggiungere italiano e vedere se funziona
+    i18n.addTranslations("it", {
+      "kind_plural_function": "FUNZIONI_TEST",
     });
+
+    console.log("[DIAG] Dopo addTranslations, locales:", Object.keys(i18n.locales || {}));
+    
+    // Proviamo a cambiare locale
+    try {
+      i18n.setLocale("it");
+      console.log("[DIAG] setLocale('it') eseguito");
+      console.log("[DIAG] loadedLocale dopo setLocale:", i18n.loadedLocale);
+    } catch (e) {
+      console.log("[DIAG] Errore setLocale:", e.message);
+    }
   },
 };

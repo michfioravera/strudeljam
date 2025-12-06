@@ -1,4 +1,4 @@
-# StrudelJam
+# Documentazione
 
 **StrudelJam** è un sequencer musicale step-based costruito con React, TypeScript e Tone.js, ispirato alla sintassi di [Strudel](https://strudel.cc/).
 

@@ -4,7 +4,7 @@
   "version": "3.0.0",
   "type": "module",
   "scripts": {
-    "docs": "typedoc",
+    "docs": "typedoc --plugin ./typedoc-plugin.cjs --plugin ./typedoc-plugin-italian.cjs",
     "docs:watch": "chokidar \"src/**/*.ts\" \"src/**/*.tsx\" -c \"npm run docs:build\"",
     "dev": "vite",
     "build": "npm run docs && vite build",
