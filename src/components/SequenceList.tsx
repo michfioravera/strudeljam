@@ -247,7 +247,7 @@ const PlayModeToggle: React.FC<PlayModeToggleProps> = React.memo(({ playMode, on
             : 'text-slate-400 hover:text-slate-200'
         )}
       >
-        Ripeti una
+        singola
       </button>
       <button
         onClick={onToggle}
@@ -258,7 +258,7 @@ const PlayModeToggle: React.FC<PlayModeToggleProps> = React.memo(({ playMode, on
             : 'text-slate-400 hover:text-slate-200'
         )}
       >
-        Riproduci tutte
+        serie
       </button>
     </div>
   );
@@ -309,7 +309,7 @@ export const SequenceList: React.FC<SequenceListProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between mb-3 px-1">
         <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-          Sequenze
+          Riproduci
           <span className="bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded text-[10px] border border-slate-700">
             {sequences.length}
           </span>
