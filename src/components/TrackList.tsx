@@ -534,7 +534,7 @@ const TrackRow: React.FC<TrackRowProps> = React.memo(
           {/* Sequencer Grid */}
           <div className="w-full relative">
             <div
-              className="grid gap-1 w-full"
+              className="grid gap-1 w-full md:w-auto"
               style={{
                 gridTemplateColumns: `repeat(${stepCount}, minmax(0, 1fr))`,
               }}
