@@ -469,7 +469,7 @@ function App() {
                 </text>
               </svg>
               <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-400 hidden sm:block">
-                ꜱᴛʀᴜᴅᴇʟᴊᴀᴍ³
+                ꜱᴛʀᴜᴅᴇʟᴊᴀᴍ
               </h1>
             </div>
 
@@ -665,8 +665,8 @@ function App() {
   >
     AGPL-3.0
   </a>
-  <a href="/docs/index.html" target="_blank" rel="noopener noreferrer" className="hover:underline">
-    Docs
+  <a href="/docs/" target="_blank" rel="noopener noreferrer" className="hover:underline">
+    Documentazione
   </a>
   <a
     href="https://github.com/michfioravera/strudeljam"
