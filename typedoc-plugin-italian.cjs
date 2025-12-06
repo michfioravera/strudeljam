@@ -1,81 +1,76 @@
 /**
- * Plugin: Italian localization for TypeDoc
- * File: typedoc-plugin-italian.cjs
+ * Plugin: Italian localization for TypeDoc (Typedoc 0.28+ compatible)
  */
 
 module.exports = {
   load(app) {
-    // Tutte le stringhe italiane
-    app.i18n.addTranslations("it", {
-      // Generali
-      "theme.default.title": "Documentazione",
-      "theme.default.readme": "Introduzione",
-      "theme.default.index": "Indice",
+    app.converter.on("begin", () => {
+      // Verifica sicurezza
+      if (!app.i18n) {
+        console.warn("[Typedoc Italian] i18n non disponibile, impossibile registrare le traduzioni.");
+        return;
+      }
 
-      // Etichette sezioni
-      "label.readme": "Introduzione",
-      "label.index": "Indice",
-      "label.reference": "Riferimenti",
-      "label.references": "Riferimenti",
-      "label.modules": "Moduli",
-      "label.module": "Modulo",
-      "label.namespaces": "Namespace",
-      "label.namespace": "Namespace",
-      "label.classes": "Classi",
-      "label.class": "Classe",
-      "label.interfaces": "Interfacce",
-      "label.interface": "Interfaccia",
-      "label.enums": "Enum",
-      "label.enum": "Enum",
-      "label.functions": "Funzioni",
-      "label.function": "Funzione",
-      "label.variables": "Variabili",
-      "label.variable": "Variabile",
-      "label.typeAliases": "Alias di Tipo",
-      "label.typeAlias": "Alias di Tipo",
+      // Registrazione traduzioni italiane
+      app.i18n.addTranslations("it", {
+        "theme.default.title": "Documentazione",
+        "theme.default.readme": "Introduzione",
+        "theme.default.index": "Indice",
 
-      // Classi / componenti
-      "label.constructors": "Costruttori",
-      "label.constructor": "Costruttore",
-      "label.properties": "Proprietà",
-      "label.property": "Proprietà",
-      "label.methods": "Metodi",
-      "label.method": "Metodo",
-      "label.accessors": "Accessor",
-      "label.getter": "Getter",
-      "label.setter": "Setter",
+        "label.readme": "Introduzione",
+        "label.index": "Indice",
+        "label.reference": "Riferimenti",
+        "label.references": "Riferimenti",
+        "label.modules": "Moduli",
+        "label.module": "Modulo",
+        "label.namespaces": "Namespace",
+        "label.namespace": "Namespace",
+        "label.classes": "Classi",
+        "label.class": "Classe",
+        "label.interfaces": "Interfacce",
+        "label.interface": "Interfaccia",
+        "label.enums": "Enum",
+        "label.enum": "Enum",
+        "label.functions": "Funzioni",
+        "label.function": "Funzione",
+        "label.variables": "Variabili",
+        "label.variable": "Variabile",
+        "label.typeAliases": "Alias di Tipo",
+        "label.typeAlias": "Alias di Tipo",
 
-      // Eventi
-      "label.events": "Eventi",
-      "label.event": "Evento",
+        "label.constructors": "Costruttori",
+        "label.constructor": "Costruttore",
+        "label.properties": "Proprietà",
+        "label.property": "Proprietà",
+        "label.methods": "Metodi",
+        "label.method": "Metodo",
 
-      // Altro
-      "label.signatures": "Firme",
-      "label.signature": "Firma",
-      "label.parameters": "Parametri",
-      "label.parameter": "Parametro",
-      "label.typeParameters": "Parametri di tipo",
-      "label.sources": "Sorgente",
-      "label.implements": "Implementa",
-      "label.implementedBy": "Implementato da",
-      "label.extends": "Estende",
-      "label.extendedBy": "Esteso da",
-      "label.externalLink": "Link esterno",
+        "label.accessors": "Accessor",
+        "label.getter": "Getter",
+        "label.setter": "Setter",
 
-      // Ricerca
-      "search.placeholder": "Cerca...",
-      "search.noResults": "Nessun risultato trovato.",
-      "search.results": "Risultati della ricerca",
+        "label.signatures": "Firme",
+        "label.parameters": "Parametri",
+        "label.typeParameters": "Parametri di tipo",
 
-      // Navigazione
-      "theme.default.menu": "Menu",
-      "theme.default.tableOfContents": "Sommario",
+        "label.sources": "Sorgente",
+        "label.extends": "Estende",
+        "label.implements": "Implementa",
 
-      // Footer
-      "theme.default.footer": "Generato con TypeDoc",
+        "search.placeholder": "Cerca...",
+        "search.noResults": "Nessun risultato trovato.",
+        "search.results": "Risultati della ricerca",
+
+        "theme.default.menu": "Menu",
+        "theme.default.tableOfContents": "Sommario",
+
+        "theme.default.footer": "Generato con TypeDoc",
+      });
+
+      // Imposta lingua italiana di default
+      app.i18n.setDefaultLanguage("it");
+
+      console.log("[Typedoc Italian] Traduzione italiana caricata con successo.");
     });
-
-    // Imposta l'italiano come lingua predefinita
-    app.i18n.setDefaultLanguage("it");
   },
 };
