@@ -105,7 +105,7 @@ const StepEditor: React.FC<StepEditorProps> = React.memo(
     return (
       <div
         ref={popoverRef}
-        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 bg-slate-800 border border-slate-600 shadow-2xl rounded-lg p-3 w-48 animate-in fade-in zoom-in-95 duration-100"
+        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 max-w-[90vw] overflow-hidden z-50 bg-slate-800 border border-slate-600 shadow-2xl rounded-lg p-3 w-48 animate-in fade-in zoom-in-95 duration-100"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-2 pb-2 border-b border-slate-700">
