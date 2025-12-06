@@ -532,32 +532,31 @@ const TrackRow: React.FC<TrackRowProps> = React.memo(
                   maxWidth: "100%",
                 }}
               >
-              {track.steps.slice(0, stepCount).map((step, idx) => (
-                <div key={idx} className="relative">
-                  <StepButton
-                    step={step}
-                    index={idx}
-                    isCurrentStep={currentStep === idx}
-                    instDef={instDef}
-                    onClick={(e) => openStepEditorAt(idx, e)}
-                  />
-                  </div>
-            </div>
-                  {/* Step Editor Popover */}
-                  {editingStepIndex === idx && (
-                    <StepEditor
+                {track.steps.slice(0, stepCount).map((step, idx) => (
+                  <div key={idx} className="relative">
+                    <StepButton
                       step={step}
-                      onUpdateNote={onUpdateStepNote}
-                      onUpdateVelocity={onUpdateStepVelocity}
-                      onClear={onClearStep}
-                      onClose={onCloseStepEditor}
+                      index={idx}
+                      isCurrentStep={currentStep === idx}
+                      instDef={instDef}
+                      onClick={(e) => openStepEditorAt(idx, e)}
                     />
-                  )}
-                
-              ))}
+          
+                    {/* Step Editor Popover (PORTAL) */}
+                    {editingStepIndex === idx && (
+                      <StepEditor
+                        step={step}
+                        onUpdateNote={onUpdateStepNote}
+                        onUpdateVelocity={onUpdateStepVelocity}
+                        onClear={onClearStep}
+                        onClose={onCloseStepEditor}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
 
         {/* Mix Controls (Collapsible) */}
         {showMix && (
