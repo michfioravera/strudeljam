@@ -100,7 +100,8 @@ function getStrudelSound(type: InstrumentType): string {
 export function parseStrudelCode(code: string): Partial<Track>[] | null {
   try {
     const tracks: Partial<Track>[] = [];
-    const trackBlocks = code.split(/\/\/ Track \d+:/);
+    // Fix: Match "Traccia" (Italian) instead of "Track"
+    const trackBlocks = code.split(/\/\/ Traccia \d+:/);
 
     trackBlocks.forEach((block) => {
       const trimmedBlock = block.trim();
@@ -109,31 +110,37 @@ export function parseStrudelCode(code: string): Partial<Track>[] | null {
       }
 
       const isMuted = trimmedBlock.includes('// DISATTIVATA');
-      const cleanBlock = trimmedBlock.replace(/\/\/ DISATTIVATA\n?/g, '').replace(/\/\/ /g, '');
+      const cleanBlock = trimmedBlock.replace(/\/\/ DISATTIVATA\n?/g, '').replace(/^\/\/ /gm, '');
 
-      const noteMatch = cleanBlock.match(/note\("([^"]+)"\)/);
-      if (!noteMatch) return;
+      // More flexible note pattern matching
+      const noteMatch = cleanBlock.match(/note\s*\(\s*["']([^"']+)["']\s*\)/);
+      if (!noteMatch) {
+        console.warn('[STRUDEL-GEN] No note pattern found in block:', cleanBlock.substring(0, 100));
+        return;
+      }
 
       const pattern = noteMatch[1];
-      const notes = pattern.split(/\s+/);
+      const notes = pattern.split(/\s+/).filter(n => n.length > 0);
 
-      const soundMatch = cleanBlock.match(/\.sound\("([^"]+)"\)/);
+      // More flexible sound matching
+      const soundMatch = cleanBlock.match(/\.sound\s*\(\s*["']([^"']+)["']\s*\)/);
       const sound = soundMatch ? soundMatch[1] : 'sine';
       const instrument = getInstrumentFromSound(sound);
 
-      const gainMatch = cleanBlock.match(/\.gain\(([0-9.]+)\)/);
+      // More flexible parameter matching with optional whitespace
+      const gainMatch = cleanBlock.match(/\.gain\s*\(\s*([0-9.]+)\s*\)/);
       const gain = gainMatch ? parseFloat(gainMatch[1]) : 0.8;
 
-      const panMatch = cleanBlock.match(/\.pan\(([0-9.]+)\)/);
+      const panMatch = cleanBlock.match(/\.pan\s*\(\s*([0-9.]+)\s*\)/);
       const pan = panMatch ? parseFloat(panMatch[1]) * 2 - 1 : 0;
 
-      const delayMatch = cleanBlock.match(/\.delay\(([0-9.]+)\)/);
+      const delayMatch = cleanBlock.match(/\.delay\s*\(\s*([0-9.]+)\s*\)/);
       const delay = delayMatch ? Math.round(parseFloat(delayMatch[1]) * 100) : 0;
 
-      const roomMatch = cleanBlock.match(/\.room\(([0-9.]+)\)/);
+      const roomMatch = cleanBlock.match(/\.room\s*\(\s*([0-9.]+)\s*\)/);
       const reverb = roomMatch ? Math.round(parseFloat(roomMatch[1]) * 100) : 0;
 
-      const distortMatch = cleanBlock.match(/\.distort\(([0-9.]+)\)/);
+      const distortMatch = cleanBlock.match(/\.distort\s*\(\s*([0-9.]+)\s*\)/);
       const distortion = distortMatch ? Math.round(parseFloat(distortMatch[1]) * 100) : 0;
 
       const steps: Step[] = [];
@@ -176,6 +183,10 @@ export function parseStrudelCode(code: string): Partial<Track>[] | null {
         distortion,
       });
     });
+
+    if (tracks.length === 0) {
+      console.warn('[STRUDEL-GEN] No tracks parsed from code');
+    }
 
     return tracks.length > 0 ? tracks : null;
   } catch (error) {

@@ -3081,12 +3081,7 @@ typed-array-length@^1.0.7:
     possible-typed-array-names "^1.0.0"
     reflect.getprototypeof "^1.0.6"
 
-typedoc-plugin-markdown@^4.9.0:
-  version "4.9.0"
-  resolved "https://registry.npmjs.org/typedoc-plugin-markdown/-/typedoc-plugin-markdown-4.9.0.tgz"
-  integrity sha512-9Uu4WR9L7ZBgAl60N/h+jqmPxxvnC9nQAlnnO/OujtG2ubjnKTVUFY1XDhcMY+pCqlX3N2HsQM2QTYZIU9tJuw==
-
-typedoc@^0.28.15, typedoc@0.28.x:
+typedoc@^0.28.15:
   version "0.28.15"
   resolved "https://registry.npmjs.org/typedoc/-/typedoc-0.28.15.tgz"
   integrity sha512-mw2/2vTL7MlT+BVo43lOsufkkd2CJO4zeOSuWQQsiXoV2VuEn7f6IZp2jsUDPmBMABpgR0R5jlcJ2OGEFYmkyg==

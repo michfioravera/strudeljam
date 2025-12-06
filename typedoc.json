@@ -3,8 +3,8 @@
   "skipErrorChecking": true,
   "entryPoints": ["src"],
   "entryPointStrategy": "expand",
-  "out": "docs",
-  "plugin": ["typedoc-plugin-markdown"],
+  "out": "public/docs",
+  "plugin": ["./typedoc-plugin.cjs"],
   "exclude": [
     "**/*.test.ts",
     "**/*.test.tsx",
@@ -12,6 +12,8 @@
   ],
   "excludePrivate": true,
   "excludeInternal": true,
-  "readme": "none",
-  "tsconfig": "./tsconfig.json"
+  "readme": "README.md",
+  "tsconfig": "./tsconfig.json",
+  "name": "ꜱᴛʀᴜᴅᴇʟᴊᴀᴍ",
+  "includeVersion": true
 }

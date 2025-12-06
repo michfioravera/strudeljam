@@ -1,20 +1,25 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { viteStaticCopy } from 'vite-plugin-static-copy'
-
+import type { Connect } from 'vite';
 
 export default defineConfig({
-  publicDir: "docs", // ← usa la tua cartella /docs come public!
+  publicDir: "public",
   
-  plugins: [react(),
-  viteStaticCopy({
-    targets: [
-        {
-          src: 'docs',   // cartella generata da Typedoc
-          dest: '.'      // copia tutto nella root della build
-        }
-      ]
-    })
+  plugins: [
+    react(),
+    // Plugin personalizzato per redirect delle directory
+    {
+      name: 'directory-index',
+      configureServer(server) {
+        server.middlewares.use((req: Connect.IncomingMessage, res: any, next: Connect.NextFunction) => {
+          // Se la richiesta finisce con / e non è la root
+          if (req.url && req.url.endsWith('/') && req.url !== '/') {
+            req.url = req.url + 'index.html';
+          }
+          next();
+        });
+      }
+    }
   ],
 
   optimizeDeps: {
@@ -24,10 +29,5 @@ export default defineConfig({
 
   resolve: {
     extensions: ['.ts', '.tsx', '.js', '.jsx', '.mjs'],
-    // Rimuovi l'alias se vuoi usare i pacchetti npm
-    alias: {
-      // '@strudel': path.resolve(__dirname, 'src/external/strudel/dist'),
-    },
   },
 });
-
