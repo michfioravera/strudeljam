@@ -8,8 +8,7 @@ export function generateStrudelCode(tracks: Track[], bpm: number): string {
   }
 
   const cps = bpm / 60 / 4;
-  let code = `// StrudelJam v3.0 - Codice Generato\n`;
-  code += `// BPM: ${bpm}\n\n`;
+  let code = `// BPM: ${bpm}\n\n`;
   code += `setcps(${cps.toFixed(4)})\n\n`;
 
   const trackCodes: string[] = [];
