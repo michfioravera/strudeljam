@@ -109,11 +109,11 @@ const StepEditor: React.FC<StepEditorProps> = React.memo(
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-2 pb-2 border-b border-slate-700">
-          <span className="text-xs font-bold text-slate-400">EDIT STEP</span>
+          <span className="text-xs font-bold text-slate-400">Modifica Passo</span>
           <button
             onClick={onClear}
             className="text-red-400 hover:text-red-300"
-            title="Remove Step"
+            title="Rimuovi Passo"
           >
             <Trash2 size={14} />
           </button>
@@ -148,7 +148,7 @@ const StepEditor: React.FC<StepEditorProps> = React.memo(
         {/* Velocity Control */}
         <div className="flex flex-col gap-1">
           <div className="flex justify-between text-[10px] text-slate-400 font-bold uppercase">
-            <span>Velocity</span>
+            <span>Velocità</span>
             <span>{step.velocity ?? SEQUENCER_CONFIG.DEFAULT_VELOCITY}</span>
           </div>
           <input
@@ -182,7 +182,7 @@ const InstrumentSelector: React.FC<InstrumentSelectorProps> = React.memo(
 
     useSingleClickOutside(selectorRef, onClose, true);
 
-    const categories = useMemo(() => ['Drums', 'Synths', 'Noise'] as const, []);
+    const categories = useMemo(() => ['Casse', 'Sintetizzatori', 'Rumori'] as const, []);
 
     return (
       <div
@@ -191,7 +191,7 @@ const InstrumentSelector: React.FC<InstrumentSelectorProps> = React.memo(
         onClick={(e) => e.stopPropagation()}
       >
         <div className="text-xs font-bold text-slate-500 px-2 py-1 uppercase">
-          Select Instrument
+          Strumento
         </div>
         {categories.map((category) => (
           <div key={category}>
@@ -286,10 +286,11 @@ const MixControls: React.FC<MixControlsProps> = React.memo(
   ({ track, stepCount, onUpdateTrack, onStepCountChange }) => {
     return (
       <div className="mt-2 pt-4 border-t border-slate-700/50 grid grid-cols-2 md:grid-cols-5 gap-6 animate-in slide-in-from-top-2 fade-in duration-200">
+        
         {/* Step Count Input */}
         <div className="flex flex-col gap-1">
           <div className="flex justify-between text-[10px] text-slate-400 font-bold uppercase items-center">
-            <span>Steps</span>
+            <span>Passi</span>
             <Grid3X3 size={10} />
           </div>
           <StepInput value={stepCount} onChange={onStepCountChange} />
@@ -298,7 +299,7 @@ const MixControls: React.FC<MixControlsProps> = React.memo(
         {/* Pan */}
         <div className="flex flex-col gap-1">
           <div className="flex justify-between text-[10px] text-slate-400 font-bold uppercase">
-            <span>Pan</span>
+            <span>Panoramica</span>
             <span>{(track.pan ?? 0).toFixed(1)}</span>
           </div>
           <input
@@ -319,7 +320,7 @@ const MixControls: React.FC<MixControlsProps> = React.memo(
         {/* Delay */}
         <div className="flex flex-col gap-1">
           <div className="flex justify-between text-[10px] text-slate-400 font-bold uppercase">
-            <span>Delay</span>
+            <span>Ritardo</span>
             <span>{track.delay ?? 0}%</span>
           </div>
           <input
@@ -335,7 +336,7 @@ const MixControls: React.FC<MixControlsProps> = React.memo(
         {/* Reverb */}
         <div className="flex flex-col gap-1">
           <div className="flex justify-between text-[10px] text-slate-400 font-bold uppercase">
-            <span>Reverb</span>
+            <span>Riverbero</span>
             <span>{track.reverb ?? 0}%</span>
           </div>
           <input
@@ -351,7 +352,7 @@ const MixControls: React.FC<MixControlsProps> = React.memo(
         {/* Distortion */}
         <div className="flex flex-col gap-1">
           <div className="flex justify-between text-[10px] text-slate-400 font-bold uppercase">
-            <span>Distortion</span>
+            <span>Distosione</span>
             <span>{track.distortion ?? 0}%</span>
           </div>
           <input
@@ -466,16 +467,19 @@ const TrackRow: React.FC<TrackRowProps> = React.memo(
         <div className="flex flex-col md:flex-row gap-4 items-center">
           {/* Instrument Info & Basic Vol */}
           <div className="flex items-center gap-3 w-full md:w-48 relative">
-            {/* Instrument Icon / Selector Trigger */}
+            {/* Track Effects */}
             <button
-              onClick={onToggleInstrumentSelector}
+              onClick={onToggleMix}
               className={clsx(
-                'w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-md transition-transform hover:scale-105',
-                instDef?.color
+                'p-2 rounded-full transition',
+                showMix
+                  ? 'text-cyan-400 bg-slate-700'
+                  : 'text-slate-500 hover:text-cyan-400 hover:bg-slate-700/50'
               )}
-              title="Change Instrument"
+              title="Effetti"
             >
-              <Music size={18} />
+              <Sliders size={20} />
+              <span className="text-[8px] font-mono">{stepCount}</span>
             </button>
 
             {/* Instrument Selector Popover */}
@@ -488,13 +492,22 @@ const TrackRow: React.FC<TrackRowProps> = React.memo(
             )}
 
             <div className="flex-1 min-w-0">
-              <button
+                        <div className="flex flex-row gap-2 items-center">
+            
+          <button
+              onClick={handleRemove}
+              className="p-1 text-slate-500 hover:text-red-400 hover:bg-slate-700/50 rounded-full transition flex flex-col items-center gap-1"
+              title="Elimina"
+            >
+              <Trash2 size={11} />
+            </button><button
                 onClick={onToggleInstrumentSelector}
                 className="text-slate-100 font-medium truncate hover:text-cyan-400 transition-colors flex items-center gap-1"
               >
                 {instDef?.name}
                 <ChevronDown size={12} className="opacity-50" />
-              </button>
+                
+              </button></div>
               <div className="flex items-center gap-2 mt-1">
                 <button
                   onClick={handleMuteToggle}
@@ -519,7 +532,7 @@ const TrackRow: React.FC<TrackRowProps> = React.memo(
           </div>
 
           {/* Sequencer Grid */}
-          <div className="flex-1 w-full relative">
+          <div className="w-full relative">
             <div
               className="grid gap-1 w-full"
               style={{
@@ -549,30 +562,6 @@ const TrackRow: React.FC<TrackRowProps> = React.memo(
                 </div>
               ))}
             </div>
-          </div>
-
-          {/* Track Actions */}
-          <div className="flex flex-col gap-2 items-center">
-            <button
-              onClick={handleRemove}
-              className="p-2 text-slate-500 hover:text-red-400 hover:bg-slate-700/50 rounded-full transition"
-              title="Remove Track"
-            >
-              <Trash2 size={20} />
-            </button>
-            <button
-              onClick={onToggleMix}
-              className={clsx(
-                'p-2 rounded-full transition flex flex-col items-center gap-1',
-                showMix
-                  ? 'text-cyan-400 bg-slate-700'
-                  : 'text-slate-500 hover:text-cyan-400 hover:bg-slate-700/50'
-              )}
-              title="Mix & Effects"
-            >
-              <Sliders size={20} />
-              <span className="text-[8px] font-mono">{stepCount}</span>
-            </button>
           </div>
         </div>
 
@@ -690,8 +679,8 @@ export const TrackList: React.FC<TrackListProps> = ({
     return (
       <div className="flex flex-col gap-4 w-full max-w-5xl mx-auto p-4 pb-32">
         <div className="text-center py-20 text-slate-500 border-2 border-dashed border-slate-700 rounded-xl">
-          <p className="text-lg">No active tracks.</p>
-          <p className="text-sm mt-2">Click "+" to start creating music!</p>
+          <p className="text-lg">Nessuna Traccia</p>
+          <p className="text-sm mt-2">Seleziona "+" per iniziare a creare musica!</p>
         </div>
       </div>
     );

@@ -1,6 +1,6 @@
 // src/hooks/useAudioEngine.ts
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { audioEngine } from '../lib/audio-engine-hybrid';
+import { audioEngine } from '../lib/audio-engine';
 import { Track } from '../lib/constants';
 import * as Tone from 'tone';
 

@@ -162,7 +162,7 @@ const SequenceCard: React.FC<SequenceCardProps> = React.memo(
                     ? 'text-cyan-400 hover:text-cyan-300 bg-cyan-900/50'
                     : 'text-slate-600 hover:text-cyan-400 opacity-0 group-hover:opacity-100'
                 )}
-                title={isPinned ? 'Unpin View' : 'Pin View for Editing'}
+                title={isPinned ? 'Sfissa' : 'Fissa'}
               >
                 {isPinned ? <PinOff size={12} /> : <Pin size={12} />}
               </button>
@@ -192,35 +192,35 @@ const SequenceCard: React.FC<SequenceCardProps> = React.memo(
               ))}
             </div>
           ) : (
-            <span className="text-[10px] text-slate-600 text-center">Empty</span>
+            <span className="text-[10px] text-slate-600 text-center">Vuota</span>
           )}
         </div>
 
         {/* Action Buttons */}
         <div className="absolute bottom-1 right-1 flex flex-nowrap min-w-0 gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900/90 rounded p-0.5 backdrop-blur-sm border border-slate-800">
+          {canDelete && (
+            <button
+              onClick={handleDeleteClick}
+              className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded"
+              title="Elimina"
+            >
+              <Trash2 size={12} />
+            </button>
+          )}
           <button
             onClick={onStartEditing}
             className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded"
-            title="Rename"
+            title="Rinomina"
           >
             <Edit2 size={12} />
           </button>
           <button
             onClick={handleDuplicateClick}
             className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded"
-            title="Duplicate"
+            title="Duplica"
           >
             <Copy size={12} />
           </button>
-          {canDelete && (
-            <button
-              onClick={handleDeleteClick}
-              className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded"
-              title="Delete"
-            >
-              <Trash2 size={12} />
-            </button>
-          )}
         </div>
       </div>
     );
@@ -247,7 +247,7 @@ const PlayModeToggle: React.FC<PlayModeToggleProps> = React.memo(({ playMode, on
             : 'text-slate-400 hover:text-slate-200'
         )}
       >
-        Loop Current
+        Ripeti una
       </button>
       <button
         onClick={onToggle}
@@ -258,7 +258,7 @@ const PlayModeToggle: React.FC<PlayModeToggleProps> = React.memo(({ playMode, on
             : 'text-slate-400 hover:text-slate-200'
         )}
       >
-        Play All
+        Riproduci tutte
       </button>
     </div>
   );
@@ -309,7 +309,7 @@ export const SequenceList: React.FC<SequenceListProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between mb-3 px-1">
         <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-          Sequences
+          Sequenze
           <span className="bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded text-[10px] border border-slate-700">
             {sequences.length}
           </span>
@@ -350,7 +350,7 @@ export const SequenceList: React.FC<SequenceListProps> = ({
         <button
           onClick={onCreate}
           className="flex-shrink-0 w-12 h-24 rounded-xl border-2 border-dashed border-slate-700 hover:border-cyan-500/50 hover:bg-slate-800/50 flex items-center justify-center text-slate-600 hover:text-cyan-500 transition-all"
-          title="New Sequence"
+          title="Nuova Sequenza"
         >
           <Plus size={24} />
         </button>

@@ -1,53 +1,56 @@
-import * as Tone from 'tone';
-import { Track, INSTRUMENTS, InstrumentType } from './constants';
+// src/lib/audio-engine-hybrid.ts
+import { 
+  Synth, 
+  PolySynth, 
+  MembraneSynth, 
+  NoiseSynth, 
+  MetalSynth,
+  Filter,
+  Distortion,
+  FeedbackDelay,
+  Reverb,
+  Panner,
+  Volume,
+  Part,
+  Loop,
+  Limiter,
+  Recorder,
+  Transport,
+  Draw,
+  context,
+  start,
+  getContext,
+  Destination
+} from 'tone';
+import { 
+  Track, 
+  INSTRUMENTS, 
+  InstrumentType, 
+  POLYPHONY_CONFIG, 
+  SAFE_MODE_CONFIG,
+  DEBUG_CONFIG,
+  SEQUENCER_CONFIG
+} from './constants';
 
 // ============================================================================
-// TYPES & CONSTANTS
+// TYPES & INTERFACES
 // ============================================================================
 
 interface ChannelStrip {
   type: InstrumentType;
-  synth: Tone.Instrument<any>;
-  filter: Tone.Filter; // Low-pass filter for safe mode
-  distortion: Tone.Distortion;
-  delay: Tone.FeedbackDelay;
-  reverb: Tone.Reverb;
-  panner: Tone.Panner;
-  volume: Tone.Volume;
-  voiceCount: number; // Track active voices
+  synth: Synth | PolySynth | MembraneSynth | NoiseSynth | MetalSynth;
+  filter: Filter;
+  distortion: Distortion;
+  delay: FeedbackDelay;
+  reverb: Reverb;
+  panner: Panner;
+  volume: Volume;
+  voiceCount: number;
 }
 
 interface PartState {
   stepCount: number;
 }
-
-// Polyphony & Performance Limits
-const POLYPHONY_CONFIG = {
-  MAX_TOTAL_VOICES: 32, // Absolute limit
-  MAX_VOICES_PER_TRACK: 8,
-  MAX_ACTIVE_PARTS: 16, // Max concurrent Tone.Parts
-  VOICE_CLEANUP_THRESHOLD: 28, // Cleanup at 87.5% capacity
-};
-
-const AUDIO_BUFFER_CONFIG = {
-  BUFFER_SIZE: 4096, // Larger buffer to reduce dropouts (was likely 512)
-  SAMPLE_RATE: 48000, // Use 48kHz instead of 44.1kHz for better performance
-};
-
-const SAFE_MODE_CONFIG = {
-  ENABLED: true, // Safe mode for synths (LP filter + reduced harmonics)
-  FILTER_FREQ: 8000, // Hz - reduces aliasing
-  REDUCE_HARMONICS: true,
-};
-
-const DEBUG = {
-  ENABLED: true,
-  LOG_INTERVAL_MS: 2000, // Log stats every 2 seconds
-};
-
-// ============================================================================
-// UTILITY FUNCTIONS
-// ============================================================================
 
 interface AudioStats {
   totalVoices: number;
@@ -55,10 +58,15 @@ interface AudioStats {
   activeParts: number;
   estimatedCpuLoad: number;
   isOverloaded: boolean;
+  engine: 'tone.js';
 }
 
+// ============================================================================
+// POLYPHONY MANAGER
+// ============================================================================
+
 class PolyphonyManager {
-  private activeVoices: Map<string, number> = new Map(); // trackId -> count
+  private activeVoices: Map<string, number> = new Map();
 
   getActiveVoices(trackId?: string): number {
     if (trackId) {
@@ -70,13 +78,17 @@ class PolyphonyManager {
   incrementVoice(trackId: string): boolean {
     const total = this.getActiveVoices();
     if (total >= POLYPHONY_CONFIG.MAX_TOTAL_VOICES) {
-      if (DEBUG.ENABLED) console.warn(`[POLYPHONY] Max voices reached (${total}/${POLYPHONY_CONFIG.MAX_TOTAL_VOICES})`);
+      if (DEBUG_CONFIG.ENABLED) {
+        console.warn(`[POLYPHONY] Max voices reached (${total}/${POLYPHONY_CONFIG.MAX_TOTAL_VOICES})`);
+      }
       return false;
     }
 
     const trackVoices = this.activeVoices.get(trackId) || 0;
     if (trackVoices >= POLYPHONY_CONFIG.MAX_VOICES_PER_TRACK) {
-      if (DEBUG.ENABLED) console.warn(`[POLYPHONY] Track ${trackId} max voices (${trackVoices}/${POLYPHONY_CONFIG.MAX_VOICES_PER_TRACK})`);
+      if (DEBUG_CONFIG.ENABLED) {
+        console.warn(`[POLYPHONY] Track ${trackId} max voices (${trackVoices}/${POLYPHONY_CONFIG.MAX_VOICES_PER_TRACK})`);
+      }
       return false;
     }
 
@@ -100,8 +112,12 @@ class PolyphonyManager {
   }
 }
 
+// ============================================================================
+// GAIN LIMITER
+// ============================================================================
+
 class GainLimiter {
-  private gains: Map<string, number> = new Map(); // trackId -> normalized gain
+  private gains: Map<string, number> = new Map();
   private maxGain: number = 1.0;
 
   registerTrack(trackId: string, baseGain: number): void {
@@ -129,7 +145,7 @@ class GainLimiter {
 
   getScaledGain(trackId: string): number {
     const baseGain = this.getGain(trackId);
-    return Math.min(1.0, baseGain * this.maxGain * 0.95); // 0.95 for headroom
+    return Math.min(1.0, baseGain * this.maxGain * 0.95);
   }
 
   reset(): void {
@@ -139,328 +155,222 @@ class GainLimiter {
 }
 
 // ============================================================================
-// MAIN AUDIO ENGINE CLASS
+// HYBRID AUDIO ENGINE
 // ============================================================================
 
-class AudioEngine {
+class HybridAudioEngine {
   private channels: Map<string, ChannelStrip> = new Map();
-  private parts: Map<string, Tone.Part> = new Map();
+  private parts: Map<string, Part> = new Map();
   private partStates: Map<string, PartState> = new Map();
   private currentTracks: Map<string, Track> = new Map();
+  
   private polyphonyManager: PolyphonyManager = new PolyphonyManager();
   private gainLimiter: GainLimiter = new GainLimiter();
-
-  private masterLoop: Tone.Loop | null = null;
-  private masterLimiter: Tone.Limiter; // Global limiter
-  private recorder: Tone.Recorder;
-  private playedTestTone: boolean = false;
+  
+  private masterLoop: Loop | null = null;
+  private masterLimiter: Limiter | null = null;
+  private recorder: Recorder | null = null;
+  
   private isRunning: boolean = false;
+  private isInitialized: boolean = false;
+  
+  private onStepCallback: ((trackId: string, step: number) => void) | null = null;
+  private onGlobalStepCallback: ((step: number) => void) | null = null;
+  
+  private globalStepCount: number = SEQUENCER_CONFIG.STEPS_PER_MEASURE;
   private lastStatsLog: number = 0;
   private pageVisibilityHandler: (() => void) | null = null;
 
   constructor() {
-    // Setup audio context with optimized settings
-    this.setupAudioContext();
-
-    // Master limiter (-3dB to prevent clipping)
-    this.masterLimiter = new Tone.Limiter(-3).toDestination();
-
-    this.recorder = new Tone.Recorder();
-    this.masterLimiter.connect(this.recorder);
-
     // Page visibility listener (pause when tab loses focus)
     this.pageVisibilityHandler = this.handlePageVisibilityChange.bind(this);
     document.addEventListener('visibilitychange', this.pageVisibilityHandler);
   }
 
-  private setupAudioContext(): void {
-    // Optimize Tone.js context
-    const context = Tone.getContext();
+  // ============================================================================
+  // INITIALIZATION
+  // ============================================================================
 
-    // Attempt to set buffer size (may not work in all browsers)
-    if ('createScriptProcessor' in context) {
-      try {
-        (context as any).createScriptProcessor(AUDIO_BUFFER_CONFIG.BUFFER_SIZE, 1, 1).disconnect();
-      } catch (e) {
-        if (DEBUG.ENABLED) console.log('[AUDIO] Buffer size setting not available');
-      }
+  private async ensureInitialized(): Promise<void> {
+    if (this.isInitialized) return;
+    
+    await start();
+    
+    // Setup master limiter (-3dB to prevent clipping)
+    this.masterLimiter = new Limiter(-3).toDestination();
+    
+    // Setup recorder
+    this.recorder = new Recorder();
+    this.masterLimiter.connect(this.recorder);
+    
+    this.isInitialized = true;
+    
+    if (DEBUG_CONFIG.ENABLED) {
+      console.log('[AUDIO] Engine initialized, sample rate:', getContext().sampleRate);
     }
 
-    if (DEBUG.ENABLED) {
-      console.log(`[AUDIO] Context initialized - Sample Rate: ${context.sampleRate}Hz, State: ${context.state}`);
+    // If there are pending tracks, recreate parts now
+    if (this.currentTracks.size > 0) {
+      const tracks = Array.from(this.currentTracks.values());
+      this.recreateAllParts(tracks);
     }
   }
 
   private handlePageVisibilityChange(): void {
     if (document.hidden && this.isRunning) {
-      if (DEBUG.ENABLED) console.log('[AUDIO] Tab hidden - pausing audio');
+      if (DEBUG_CONFIG.ENABLED) {
+        console.log('[AUDIO] Tab hidden - pausing audio');
+      }
       this.hardStop();
     }
   }
 
-  public async start(): Promise<void> {
-    // Must resume before Tone.start() - this is the key!
-    try {
-      // Get the actual Web Audio context
-      const audioContext = (Tone.Destination as any)?.context;
-      if (audioContext && audioContext.state === 'suspended') {
-        if (DEBUG.ENABLED) console.log('[AUDIO] Attempting to resume AudioContext from state:', audioContext.state);
-        await audioContext.resume();
-        if (DEBUG.ENABLED) console.log('[AUDIO] AudioContext resumed! New state:', audioContext.state);
-      }
-    } catch (e) {
-      if (DEBUG.ENABLED) console.warn('[AUDIO] Could not resume context:', e);
-    }
+  // ============================================================================
+  // SYNTH CREATION
+  // ============================================================================
 
-    // Now start Tone (this should work after context resume)
-    await Tone.start();
-
-    // Ensure Transport is in a fresh state
-    if (Tone.Transport.state !== 'started') {
-      // Reset position to 0 to start from beginning
-      Tone.Transport.position = 0;
-      Tone.Transport.start();
-      this.isRunning = true;
-      if (DEBUG.ENABLED) console.log('[AUDIO] Engine started');
-
-      // Debug: play short test tones to verify audio output chain is audible
-      /*try {
-        if (DEBUG.ENABLED && !this.playedTestTone) {
-          const now = Tone.now();
-
-          // 1) Normal routed test tone through master limiter
-          const osc = new Tone.Oscillator(880, 'sine').connect(this.masterLimiter);
-          osc.start(now);
-          osc.stop(now + 0.12);
-          setTimeout(() => { try { osc.dispose(); } catch (e) {} }, 500);
-
-          // 2) Loud direct test tone to destination (bypasses signal chain)
-          const direct = new Tone.Oscillator(880, 'sine').toDestination();
-          direct.volume.value = 0; // 0 dB
-          direct.start(now + 0.05);
-          direct.stop(now + 0.35);
-          setTimeout(() => { try { direct.dispose(); } catch (e) {} }, 700);
-
-          this.playedTestTone = true;
-          console.log('[AUDIO] Debug test tones played (routed + direct)');
-        }
-      } catch (e) {
-        if (DEBUG.ENABLED) console.warn('[AUDIO] Could not play debug test tones:', e);
-      }*/
-    }
-
-    // Restart any existing parts (they may have been stopped by stop())
-    try {
-      this.parts.forEach((part, id) => {
-        try {
-          // If the part is not started, start it at position 0 so callbacks resume
-          if (!part.started) {
-            part.start(0);
-            if (DEBUG.ENABLED) console.log(`[AUDIO] Restarted part for track ${id}`);
-          }
-        } catch (e) {
-          if (DEBUG.ENABLED) console.warn(`[AUDIO] Could not restart part ${id}:`, e);
-        }
-      });
-
-      // Ensure the master loop is started
-      if (this.masterLoop && !this.masterLoop.running) {
-        try {
-          this.masterLoop.start(0);
-          if (DEBUG.ENABLED) console.log('[AUDIO] Master loop restarted');
-        } catch (e) {
-          if (DEBUG.ENABLED) console.warn('[AUDIO] Could not restart master loop:', e);
-        }
-      }
-    } catch (e) {
-      if (DEBUG.ENABLED) console.warn('[AUDIO] Error while restarting parts/master loop:', e);
-    }
-  }
-
-  public stop(): void {
-    Tone.Transport.stop();
-    this.parts.forEach(part => part.stop());
-    this.isRunning = false;
-    if (DEBUG.ENABLED) console.log('[AUDIO] Engine stopped gracefully - Transport state:', Tone.Transport.state);
-  }
-
-  /**
-   * Hard stop: Kill ALL voices and effects immediately.
-   * Use this for emergency stop or tab visibility changes.
-   */
-  public hardStop(): void {
-    if (DEBUG.ENABLED) console.log('[AUDIO] HARD STOP triggered');
-
-    // Stop all parts
-    this.parts.forEach(part => {
-      part.stop();
-      part.dispose();
-    });
-    this.parts.clear();
-
-    // Release all synth voices
-    this.channels.forEach(ch => {
-      if (ch.synth instanceof Tone.PolySynth) {
-        ch.synth.triggerRelease();
-      }
-    });
-
-    // Stop transport but DON'T cancel (that breaks future playback)
-    Tone.Transport.stop();
-    Tone.Transport.position = 0; // Reset position to start
-
-    // Dispose of master loop so it gets recreated fresh
-    if (this.masterLoop) {
-      this.masterLoop.dispose();
-      this.masterLoop = null;
-    }
-
-    this.polyphonyManager.reset();
-    this.isRunning = false;
-  }
-
-  public setBpm(bpm: number): void {
-    Tone.Transport.bpm.value = bpm;
-  }
-
-  /**
-   * Create a synth with optimizations for safe mode.
-   * Reduces harmonics and adds LP filter to prevent aliasing.
-   */
-  private createSynth(type: InstrumentType): Tone.Instrument<any> {
+  private createSynth(type: InstrumentType): Synth | PolySynth | MembraneSynth | NoiseSynth | MetalSynth {
     switch (type) {
       case 'kick':
-        return new Tone.MembraneSynth({
+        return new MembraneSynth({
           pitchDecay: 0.05,
-          octaves: 6, // Reduced from 10
+          octaves: 6,
           oscillator: { type: 'sine' },
-          envelope: { attack: 0.001, decay: 0.4, sustain: 0, release: 1.2 } // Reduced sustain
+          envelope: { attack: 0.001, decay: 0.4, sustain: 0, release: 1.2 }
         });
+        
       case 'tom':
-        return new Tone.MembraneSynth({
+        return new MembraneSynth({
           pitchDecay: 0.05,
-          octaves: 3, // Reduced from 4
+          octaves: 3,
           oscillator: { type: 'sine' },
           envelope: { attack: 0.001, decay: 0.3, sustain: 0, release: 1.0 }
         });
+        
       case 'snare':
       case 'rim':
       case 'clap':
-        return new Tone.NoiseSynth({
+        return new NoiseSynth({
           noise: { type: 'white' },
-          envelope: { attack: 0.001, decay: 0.15, sustain: 0, release: 0.1 } // Reduced from 0.2
+          envelope: { attack: 0.001, decay: 0.15, sustain: 0, release: 0.1 }
         });
+        
       case 'hat':
       case 'open_hat':
       case 'ride':
       case 'crash':
-        return new Tone.MetalSynth({
-          envelope: { attack: 0.001, decay: 0.08, release: 0.01 }, // Reduced from 0.1
-          harmonicity: 3.5, // Reduced from 5.1
-          modulationIndex: 20, // Reduced from 32
-          resonance: 3000, // Reduced from 4000
-          octaves: 1.0 // Reduced from 1.5
+        return new MetalSynth({
+          envelope: { attack: 0.001, decay: 0.1, release: 0.05 },
+          harmonicity: 5.1,
+          modulationIndex: 32,
+          resonance: 4000,
+          octaves: 1.5
         });
+        
       case 'perc':
-        return new Tone.MembraneSynth();
-
-      // Synths with reduced polyphony
+        return new MembraneSynth();
+        
       case 'sine':
-        return new Tone.PolySynth(Tone.Synth, {
+        return new PolySynth(Synth, {
           oscillator: { type: 'sine' },
+          envelope: { attack: 0.01, decay: 0.3, sustain: 0.4, release: 0.8 },
           maxVoices: POLYPHONY_CONFIG.MAX_VOICES_PER_TRACK
         });
+        
       case 'triangle':
-        return new Tone.PolySynth(Tone.Synth, {
+        return new PolySynth(Synth, {
           oscillator: { type: 'triangle' },
+          envelope: { attack: 0.01, decay: 0.3, sustain: 0.4, release: 0.8 },
           maxVoices: POLYPHONY_CONFIG.MAX_VOICES_PER_TRACK
         });
+        
       case 'square':
-        return new Tone.PolySynth(Tone.Synth, {
+        return new PolySynth(Synth, {
           oscillator: { type: 'square' },
+          envelope: { attack: 0.01, decay: 0.3, sustain: 0.4, release: 0.8 },
           maxVoices: POLYPHONY_CONFIG.MAX_VOICES_PER_TRACK
         });
+        
       case 'sawtooth':
-        return new Tone.PolySynth(Tone.Synth, {
+        return new PolySynth(Synth, {
           oscillator: { type: 'sawtooth' },
+          envelope: { attack: 0.01, decay: 0.3, sustain: 0.4, release: 0.8 },
           maxVoices: POLYPHONY_CONFIG.MAX_VOICES_PER_TRACK
         });
-
-      // Noise (keep reduced)
+        
       case 'white':
-        return new Tone.NoiseSynth({
+        return new NoiseSynth({
           noise: { type: 'white' },
-          envelope: { attack: 0.001, decay: 0.2, sustain: 0, release: 0.1 }
+          envelope: { attack: 0.005, decay: 0.2, sustain: 0, release: 0.1 }
         });
+        
       case 'pink':
-        return new Tone.NoiseSynth({
+        return new NoiseSynth({
           noise: { type: 'pink' },
-          envelope: { attack: 0.001, decay: 0.2, sustain: 0, release: 0.1 }
+          envelope: { attack: 0.005, decay: 0.2, sustain: 0, release: 0.1 }
         });
+        
       case 'brown':
-        return new Tone.NoiseSynth({
+        return new NoiseSynth({
           noise: { type: 'brown' },
-          envelope: { attack: 0.001, decay: 0.2, sustain: 0, release: 0.1 }
+          envelope: { attack: 0.005, decay: 0.2, sustain: 0, release: 0.1 }
         });
-
+        
       default:
-        return new Tone.Synth({
-          maxVoices: POLYPHONY_CONFIG.MAX_VOICES_PER_TRACK
-        });
+        return new Synth();
     }
   }
 
-  /**
-   * Get or create a channel strip with proper signal chain.
-   * Includes safe-mode LP filter to prevent aliasing.
-   */
-  private getChannel(trackId: string, type: InstrumentType): ChannelStrip {
-    let channel = this.channels.get(trackId);
+  // ============================================================================
+  // CHANNEL MANAGEMENT
+  // ============================================================================
 
-    // If channel exists but type is different, swap the synth
+  private getOrCreateChannel(trackId: string, type: InstrumentType): ChannelStrip | null {
+    if (!this.isInitialized || !this.masterLimiter) return null;
+    
+    let channel = this.channels.get(trackId);
+    
+    // If channel exists but type changed, swap the synth
     if (channel && channel.type !== type) {
       try {
-        channel.synth.dispose(); // Remove old synth
+        channel.synth.dispose();
       } catch (e) {
-        if (DEBUG.ENABLED) console.warn(`[AUDIO] Error disposing old synth: ${e}`);
+        if (DEBUG_CONFIG.ENABLED) console.warn(`[AUDIO] Error disposing old synth: ${e}`);
       }
-
+      
       const newSynth = this.createSynth(type);
-      newSynth.connect(channel.filter); // Connect to filter, not directly to distortion
-
-      channel.synth = newSynth;
+      newSynth.connect(channel.filter);
+            channel.synth = newSynth;
       channel.type = type;
       return channel;
     }
-
+    
     if (channel) {
       return channel;
     }
-
+    
     // Create new channel with all effects
     const synth = this.createSynth(type);
-
+    
     // Safe mode filter (LP) - reduces aliasing and high-freq noise
-    const filter = new Tone.Filter({
+    const filter = new Filter({
       frequency: SAFE_MODE_CONFIG.FILTER_FREQ,
       type: 'lowpass',
-      rolloff: -24 // -24dB/octave for good slope
+      rolloff: -24
     });
-
-    const distortion = new Tone.Distortion(0);
-    const delay = new Tone.FeedbackDelay("8n", 0.5);
+    
+    const distortion = new Distortion(0);
+    
+    const delay = new FeedbackDelay("8n", 0.3);
     delay.wet.value = 0;
-    delay.maxDelay = 1; // Cap max delay time
-
-    const reverb = new Tone.Reverb(1.2); // Reduced from 1.5
+    
+    const reverb = new Reverb(1.5);
     reverb.wet.value = 0;
-    reverb.decay = 2.0; // Reduced from 3.0 to prevent buildup
-
-    const panner = new Tone.Panner(0);
-    const volume = new Tone.Volume(0);
-
-    // Optimized signal chain:
-    // Synth -> Filter -> Distortion -> Delay -> Reverb -> Volume -> Panner -> Master Limiter -> Recorder
+    
+    const panner = new Panner(0);
+    const volume = new Volume(0);
+    
+    // Signal chain: Synth -> Filter -> Distortion -> Delay -> Reverb -> Volume -> Panner -> Master
     synth.connect(filter);
     filter.connect(distortion);
     distortion.connect(delay);
@@ -468,18 +378,7 @@ class AudioEngine {
     reverb.connect(volume);
     volume.connect(panner);
     panner.connect(this.masterLimiter);
-    panner.connect(this.recorder);
-
-    // DEBUG: also connect synth directly to destination to verify audible output
-    if (DEBUG.ENABLED) {
-      try {
-        synth.connect(Tone.Destination);
-        if (DEBUG.ENABLED) console.log(`[AUDIO DEBUG] Direct connect from synth to Destination for track ${trackId}`);
-      } catch (e) {
-        if (DEBUG.ENABLED) console.warn(`[AUDIO DEBUG] Could not directly connect synth for ${trackId}:`, e);
-      }
-    }
-
+    
     const newChannel: ChannelStrip = {
       type,
       synth,
@@ -491,20 +390,315 @@ class AudioEngine {
       volume,
       voiceCount: 0
     };
-
+    
     this.channels.set(trackId, newChannel);
     this.gainLimiter.registerTrack(trackId, 0.8);
-
-    if (DEBUG.ENABLED) console.log(`[AUDIO] Channel created for track ${trackId} (type: ${type})`);
-
+    
+    if (DEBUG_CONFIG.ENABLED) {
+      console.log(`[AUDIO] Channel created for track ${trackId} (type: ${type})`);
+    }
+    
     return newChannel;
   }
+
+  // ============================================================================
+  // PART CREATION - FIXED TIMING WITH DYNAMIC STEP COUNT
+  // ============================================================================
+
+  /**
+   * Calculate the loopEnd time based on stepCount.
+   * 16 steps = 1 measure (1m)
+   * 8 steps = half measure (0:2:0)
+   * 32 steps = 2 measures (2m)
+   * 
+   * Formula: stepCount / 16 measures
+   */
+  private calculateLoopEnd(stepCount: number): string {
+    // Each step is a 16th note
+    // 16 steps = 1 measure = 4 beats
+    // So stepCount steps = stepCount/4 beats = stepCount/16 measures
+    const measures = stepCount / 16;
+    
+    if (measures === 1) {
+      return "1m";
+    } else if (measures === 2) {
+      return "2m";
+    } else if (measures === 0.5) {
+      return "0:2:0"; // 2 beats = half measure
+    } else if (measures === 0.25) {
+      return "0:1:0"; // 1 beat = quarter measure
+    } else {
+      // For arbitrary step counts, use ticks for precision
+      const PPQ = Transport.PPQ;
+      const ticksPerMeasure = PPQ * 4;
+      const totalTicks = Math.round((stepCount / 16) * ticksPerMeasure);
+      return `${totalTicks}i`;
+    }
+  }
+
+  /**
+   * Calculate tick-based timing for accurate step sequencing.
+   * Uses PPQ (Pulses Per Quarter) for precise sixteenth-note timing.
+   * 
+   * IMPORTANT: All steps are 16th notes regardless of stepCount.
+   * stepCount only affects the loop length, not the note spacing.
+   */
+  private calculateStepEvents(stepCount: number): { time: string; stepIdx: number }[] {
+    const PPQ = Transport.PPQ; // Usually 192
+    const ticksPerSixteenth = PPQ / 4; // 16th note = PPQ/4 ticks
+    
+    return Array.from({ length: stepCount }, (_, i) => ({
+      time: Math.round(i * ticksPerSixteenth) + "i", // "i" suffix = ticks
+      stepIdx: i
+    }));
+  }
+
+  private createPartForTrack(track: Track): Part | null {
+    const channel = this.channels.get(track.id);
+    if (!channel) return null;
+    
+    const stepCount = Math.max(1, Math.min(SEQUENCER_CONFIG.MAX_STEPS, track.stepCount || SEQUENCER_CONFIG.STEPS_PER_MEASURE));
+    const events = this.calculateStepEvents(stepCount);
+    const loopEnd = this.calculateLoopEnd(stepCount);
+    const trackId = track.id;
+    
+    if (DEBUG_CONFIG.ENABLED) {
+      console.log(`[AUDIO] Creating Part for ${trackId}: ${stepCount} steps, loopEnd=${loopEnd}, events:`, events.slice(0, 4).map(e => e.time));
+    }
+    
+    const part = new Part((time, event) => {
+      // Dynamic callback: reads latest data from currentTracks
+      const currentTrack = this.currentTracks.get(trackId);
+      if (!currentTrack || currentTrack.muted) return;
+      
+      // UI Feedback
+      if (this.onStepCallback) {
+        Draw.schedule(() => {
+          this.onStepCallback!(trackId, event.stepIdx);
+        }, time);
+      }
+      
+      // Audio trigger - read step dynamically from currentTracks
+      const step = currentTrack.steps[event.stepIdx];
+      if (step && step.active) {
+        const instDef = INSTRUMENTS.find(i => i.id === currentTrack.instrument);
+        const ch = this.channels.get(trackId);
+        
+        if (ch && instDef) {
+          // Polyphony check
+          if (!this.polyphonyManager.incrementVoice(trackId)) {
+            return;
+          }
+          
+          const noteToPlay = step.note || instDef.defaultNote || 'C2';
+          const velocity = (step.velocity ?? 100) / 100;
+          
+          try {
+            const synth = ch.synth;
+            
+            if (synth instanceof MembraneSynth) {
+              synth.triggerAttackRelease(noteToPlay, '8n', time, velocity);
+            } else if (synth instanceof NoiseSynth) {
+              synth.triggerAttackRelease('8n', time, velocity);
+            } else if (synth instanceof MetalSynth) {
+              const dur = (instDef.id.includes('hat') || instDef.id === 'ride') ? '32n' : '16n';
+              synth.triggerAttackRelease(noteToPlay, dur, time, velocity);
+            } else if (synth instanceof PolySynth) {
+              synth.triggerAttackRelease(noteToPlay, '8n', time, velocity);
+            } else if (synth instanceof Synth) {
+              synth.triggerAttackRelease(noteToPlay, '8n', time, velocity);
+            }
+            
+            // Decrement voice count after note release
+            setTimeout(() => {
+              this.polyphonyManager.decrementVoice(trackId);
+            }, 200);
+            
+          } catch (e) {
+            if (DEBUG_CONFIG.ENABLED) console.error(`[AUDIO] Error triggering note:`, e);
+            this.polyphonyManager.decrementVoice(trackId);
+          }
+        }
+      }
+    }, events);
+    
+    part.loop = true;
+    part.loopEnd = loopEnd;
+    part.mute = track.muted;
+    
+    return part;
+  }
+
+  private recreateAllParts(tracks: Track[]): void {
+    tracks.forEach(track => {
+      const ch = this.getOrCreateChannel(track.id, track.instrument);
+      if (!ch) return;
+      
+      const existingPart = this.parts.get(track.id);
+      if (existingPart) {
+        existingPart.mute = track.muted;
+        return; // Part already exists, don't recreate
+      }
+      
+      const part = this.createPartForTrack(track);
+      if (part) {
+        this.parts.set(track.id, part);
+        this.partStates.set(track.id, {
+          stepCount: track.stepCount || SEQUENCER_CONFIG.STEPS_PER_MEASURE
+        });
+        
+        if (DEBUG_CONFIG.ENABLED) {
+          console.log(`[AUDIO] Part created during init for track ${track.id}`);
+        }
+      }
+    });
+  }
+
+  // ============================================================================
+  // TRANSPORT CONTROL
+  // ============================================================================
+
+  public async start(): Promise<void> {
+    await this.ensureInitialized();
+    
+    // Resume context if suspended
+    if (context.state === 'suspended') {
+      await context.resume();
+    }
+    
+    // Reset position and start transport
+    Transport.position = 0;
+    Transport.start();
+    this.isRunning = true;
+    
+    // Start all existing parts
+    this.parts.forEach((part, id) => {
+      try {
+        if (!(part as any).started) {
+          part.start(0);
+          if (DEBUG_CONFIG.ENABLED) {
+            console.log(`[AUDIO] Part started for track ${id}`);
+          }
+        }
+      } catch (e) {
+        if (DEBUG_CONFIG.ENABLED) console.warn(`[AUDIO] Error starting part ${id}:`, e);
+      }
+    });
+    
+    // Start master loop
+    if (this.masterLoop) {
+      try {
+        if (!(this.masterLoop as any).running) {
+          this.masterLoop.start(0);
+        }
+      } catch (e) {
+        if (DEBUG_CONFIG.ENABLED) console.warn('[AUDIO] Error starting master loop:', e);
+      }
+    }
+    
+    if (DEBUG_CONFIG.ENABLED) {
+      console.log('[AUDIO] Engine started');
+    }
+  }
+
+  public stop(): void {
+    Transport.stop();
+    Transport.position = 0;
+    
+    this.parts.forEach((part, id) => {
+      try {
+        part.stop();
+      } catch (e) {
+        if (DEBUG_CONFIG.ENABLED) console.warn(`[AUDIO] Error stopping part ${id}:`, e);
+      }
+    });
+    
+    if (this.masterLoop) {
+      try {
+        this.masterLoop.stop();
+      } catch (e) {
+        if (DEBUG_CONFIG.ENABLED) console.warn('[AUDIO] Error stopping master loop:', e);
+      }
+    }
+    
+    this.isRunning = false;
+    
+    if (DEBUG_CONFIG.ENABLED) {
+      console.log('[AUDIO] Engine stopped');
+    }
+  }
+
+  /**
+   * Hard stop: Kill ALL voices and effects immediately.
+   * Use this for emergency stop or tab visibility changes.
+   */
+  public hardStop(): void {
+    if (DEBUG_CONFIG.ENABLED) {
+      console.log('[AUDIO] HARD STOP triggered');
+    }
+    
+    // Stop all parts
+    this.parts.forEach((part, id) => {
+      try {
+        part.stop();
+        part.dispose();
+      } catch (e) {
+        if (DEBUG_CONFIG.ENABLED) console.warn(`[AUDIO] Error disposing part ${id}:`, e);
+      }
+    });
+    this.parts.clear();
+    this.partStates.clear();
+    
+    // Release all synth voices
+    this.channels.forEach((ch, id) => {
+      try {
+        if (ch.synth instanceof PolySynth) {
+          ch.synth.releaseAll();
+        }
+      } catch (e) {
+        if (DEBUG_CONFIG.ENABLED) console.warn(`[AUDIO] Error releasing voices for ${id}:`, e);
+      }
+    });
+    
+    // Stop transport
+    Transport.stop();
+    Transport.position = 0;
+    
+    // Dispose master loop
+    if (this.masterLoop) {
+      try {
+        this.masterLoop.stop();
+        this.masterLoop.dispose();
+      } catch (e) {
+        if (DEBUG_CONFIG.ENABLED) console.warn('[AUDIO] Error disposing master loop:', e);
+      }
+      this.masterLoop = null;
+    }
+    
+    this.polyphonyManager.reset();
+    this.isRunning = false;
+  }
+
+  public setBpm(bpm: number): void {
+    Transport.bpm.value = bpm;
+  }
+
+  // ============================================================================
+  // SEQUENCE UPDATE - MAIN METHOD (FIXED)
+  // ============================================================================
 
   public updateSequence(
     tracks: Track[],
     onStep: (trackId: string, step: number) => void,
     onGlobalStep: (step: number) => void
   ): void {
+    if (DEBUG_CONFIG.ENABLED) {
+      console.log('[AUDIO] updateSequence called with', tracks.length, 'tracks, initialized:', this.isInitialized, 'running:', this.isRunning);
+    }
+    
+    this.onStepCallback = onStep;
+    this.onGlobalStepCallback = onGlobalStep;
+    
     // === PHASE 1: Cleanup removed tracks ===
     const newTrackIds = new Set(tracks.map(t => t.id));
     for (const [id] of this.currentTracks) {
@@ -512,247 +706,395 @@ class AudioEngine {
         this.cleanupTrack(id);
       }
     }
-
+    
     // === PHASE 2: Update currentTracks map (Source of Truth for Callbacks) ===
+    // This is critical - the Part callback reads from currentTracks dynamically,
+    // so step changes (active/note/velocity) are reflected immediately without
+    // recreating the Part.
     tracks.forEach(t => {
-      const existing = this.currentTracks.get(t.id);
-      if (existing?.steps !== t.steps) {
-        if (DEBUG.ENABLED) console.log(`[AUDIO] Track ${t.id} steps updated (${t.steps.length} total)`);
-      }
       this.currentTracks.set(t.id, t);
     });
-
+    
+    // Defer part creation until engine is initialized
+    if (!this.isInitialized) {
+      if (DEBUG_CONFIG.ENABLED) {
+        console.log('[AUDIO] Engine not initialized, deferring part creation');
+      }
+      return;
+    }
+    
     // === PHASE 3: Process Tracks ===
-    let activePartsCount = 0;
-
     tracks.forEach(track => {
       // --- A. Channel Strip Updates (Real-time, smooth, no glitches) ---
-      const ch = this.getChannel(track.id, track.instrument);
-
+      const ch = this.getOrCreateChannel(track.id, track.instrument);
+      if (!ch) return;
+      
       // Apply gain normalization
       const scaledGain = this.gainLimiter.getScaledGain(track.id);
       const volDb = track.volume <= 0.001 ? -100 : 20 * Math.log10(track.volume * scaledGain);
-      ch.volume.volume.rampTo(volDb, 0.05); // Smooth ramp
-
+      ch.volume.volume.rampTo(volDb, 0.05);
+      
       // Pan
       ch.panner.pan.rampTo(track.pan, 0.05);
-
+      
       // Effects with clamping
       ch.distortion.distortion = Math.min(0.8, 0.4 + (track.distortion / 200));
       ch.distortion.wet.value = Math.min(0.8, track.distortion / 100);
-      ch.delay.wet.value = Math.min(0.6, track.delay / 100); // Reduced max
-      ch.reverb.wet.value = Math.min(0.5, track.reverb / 100); // Reduced max
-
-      // --- B. Sequencer Part Management (Lazy recreation) ---
-      const stepCount = Math.max(1, Math.min(32, track.stepCount || 16));
+      ch.delay.wet.value = Math.min(0.6, track.delay / 100);
+      ch.reverb.wet.value = Math.min(0.5, track.reverb / 100);
+      
+      // --- B. Sequencer Part Management ---
+      // ONLY recreate Part when stepCount changes, NOT when steps content changes.
+      // Step content (active/note/velocity) is read dynamically from currentTracks.
+      
+      const stepCount = Math.max(1, Math.min(SEQUENCER_CONFIG.MAX_STEPS, track.stepCount || SEQUENCER_CONFIG.STEPS_PER_MEASURE));
       const existingPart = this.parts.get(track.id);
       const prevState = this.partStates.get(track.id);
-
-      // Only recreate if structural change (stepCount) or no part exists
-      const needsRecreate = !existingPart || !prevState || prevState.stepCount !== stepCount;
-
-      // Handle Mute
+      
+      // Handle Mute on existing part (no recreation needed)
       if (existingPart) {
         existingPart.mute = track.muted;
       }
-
+      
+      // ONLY recreate if stepCount changed (structural change)
+      const needsRecreate = !existingPart || !prevState || prevState.stepCount !== stepCount;
+      
       if (needsRecreate) {
-        // Cleanup old part - but first check if Transport is running
-        if (existingPart && Tone.Transport.state === 'stopped') {
-          try {
-            existingPart.stop();
-            existingPart.dispose();
-          } catch (e) {
-            if (DEBUG.ENABLED) console.warn(`[AUDIO] Error disposing part: ${e}`);
-          }
-        } else if (existingPart) {
-          // If Transport is running, don't dispose - just stop and create new one
-          try {
-            existingPart.stop();
-          } catch (e) {
-            if (DEBUG.ENABLED) console.warn(`[AUDIO] Error stopping part: ${e}`);
-          }
+        if (DEBUG_CONFIG.ENABLED) {
+          console.log(`[AUDIO] Recreating part for track ${track.id} (${track.instrument}): stepCount changed from ${prevState?.stepCount || 'none'} to ${stepCount}`);
         }
-
+        
         // Check polyphony limits before creating new part
-        if (this.parts.size >= POLYPHONY_CONFIG.MAX_ACTIVE_PARTS) {
-          if (DEBUG.ENABLED) console.warn(`[POLYPHONY] Max active parts reached (${this.parts.size})`);
+        if (this.parts.size >= POLYPHONY_CONFIG.MAX_ACTIVE_PARTS && !existingPart) {
+          if (DEBUG_CONFIG.ENABLED) {
+            console.warn(`[POLYPHONY] Max active parts reached (${this.parts.size})`);
+          }
           return;
         }
-
-        // Create new part with polyphony-aware callback
-        const PPQ = Tone.Transport.PPQ;
-        const ticksPerMeasure = PPQ * 4;
-        const ticksPerStep = ticksPerMeasure / stepCount;
-
-        // Create events for every step
-        const events = Array.from({ length: stepCount }, (_, i) => ({
-          time: Math.round(i * ticksPerStep) + "i",
-          stepIdx: i
-        }));
-
-        if (DEBUG.ENABLED) console.log(`[AUDIO] Creating Part for ${track.id}: ${stepCount} steps, PPQ=${PPQ}, ticksPerStep=${Math.round(ticksPerStep)}`);
-        if (DEBUG.ENABLED) console.log(`[AUDIO] Step times (first 4): ${events.slice(0, 4).map(e => e.time).join(', ')}`);
-
-
-        const part = new Tone.Part((time, event) => {
-          // Log every callback
-          if (event.stepIdx === 0 && DEBUG.ENABLED) {
-            console.log(`[AUDIO CALLBACK] Step 0 callback fired at Transport time ${time}`);
-          }
-
-          // DYNAMIC CALLBACK: Reads latest data from currentTracks
-          const currentTrack = this.currentTracks.get(track.id);
-          if (!currentTrack || currentTrack.muted) {
-            if (event.stepIdx === 0 && DEBUG.ENABLED) {
-              console.log(`[AUDIO STEP 0] track muted=${currentTrack?.muted} or not found=${!currentTrack}`);
-            }
-            return;
-          }
-
-          // UI Feedback
-          Tone.Draw.schedule(() => {
-            onStep(track.id, event.stepIdx);
-          }, time);
-
-          // Audio Trigger with Polyphony Check
-          const step = currentTrack.steps[event.stepIdx];
-
-          if (event.stepIdx === 0 && DEBUG.ENABLED) {
-            console.log(`[AUDIO STEP 0] stepIdx=0, steps array length=${currentTrack.steps.length}, step exists=${!!step}, step=${JSON.stringify(step)}`);
-          }
-
-          if (step && step.active) {
-            if (DEBUG.ENABLED) console.log(`[AUDIO TRIGGER] Step ${event.stepIdx}: Note=${step.note}, Velocity=${step.velocity}`);
-
-            const instDef = INSTRUMENTS.find(i => i.id === currentTrack.instrument);
-            const channel = this.channels.get(track.id);
-
-            if (channel && instDef) {
-              // Check if we can add another voice
-              if (!this.polyphonyManager.incrementVoice(track.id)) {
-                if (DEBUG.ENABLED) console.warn(`[POLYPHONY] Voice limit hit for ${track.id}`);
-                return;
-              }
-
-              const noteToPlay = step.note || instDef.defaultNote || 'C2';
-              const velocity = (step.velocity ?? 100) / 100;
-              const duration = (ticksPerStep / 2) + "i";
-
-              // Trigger audio with error handling
-              try {
-                if (DEBUG.ENABLED) console.log(`[AUDIO TRIGGER] Playing Note: ${noteToPlay}, Track: ${track.instrument}, Velocity: ${velocity.toFixed(2)}`);
-
-                const synth = channel.synth;
-                if (synth instanceof Tone.MembraneSynth || synth instanceof Tone.Synth) {
-                  synth.triggerAttackRelease(noteToPlay, '8n', time, velocity);
-                } else if (synth instanceof Tone.NoiseSynth) {
-                  synth.triggerAttackRelease('8n', time, velocity);
-                } else if (synth instanceof Tone.MetalSynth) {
-                  const dur = (instDef.id.includes('hat') || instDef.id === 'ride') ? '32n' : '16n';
-                  synth.triggerAttackRelease(noteToPlay, dur, time, velocity);
-                } else if (synth instanceof Tone.PolySynth) {
-                  synth.triggerAttackRelease(noteToPlay, duration, time, velocity);
-                }
-
-                // Decrement voice count after release
-                const actualDuration = Tone.Time(duration).toSeconds();
-                setTimeout(() => {
-                  this.polyphonyManager.decrementVoice(track.id);
-                }, actualDuration * 1000 + 100);
-              } catch (e) {
-                if (DEBUG.ENABLED) console.error(`[AUDIO] Error triggering note: ${e}`);
-                this.polyphonyManager.decrementVoice(track.id);
-              }
-            } else if (DEBUG.ENABLED && event.stepIdx === 0) {
-              console.warn(`[AUDIO TRIGGER] Step 0: Channel not found=${!channel}, instDef not found=${!instDef}`);
-            }
-          } else if (event.stepIdx === 0 && DEBUG.ENABLED && step) {
-            console.log(`[AUDIO STEP 0] step.active=${step.active}, skipping audio trigger`);
-          }
-        }, events);
-
-        part.loop = true;
-        part.loopEnd = "1m";
-
-
-        // Decide how to start the part so it stays in sync with Transport
-        try {
-          if (Tone.Transport.state === 'started' && this.isRunning) {
-            // Start the new part immediately but aligned to current Transport position.
-            // "+0" schedules the part at the next tick in Transport time and keeps it synced.
-            part.start("+0");
-
-            // If there was an existing part, stop & dispose it slightly after the new part is scheduled
-            // to avoid killing the sound mid-buffer and to ensure continuity.
-            if (existingPart) {
-              try {
-                // stop the old part on the next tick (small offset)
-                existingPart.stop("+0.02");
-                // dispose after a short timeout to allow any in-flight callbacks to complete
-                setTimeout(() => {
-                  try { existingPart.dispose(); } catch (e) { if (DEBUG.ENABLED) console.warn(`[AUDIO] Error disposing old part after hot-swap: ${e}`); }
-                }, 100);
-              } catch (e) {
-                if (DEBUG.ENABLED) console.warn(`[AUDIO] Could not gracefully stop existing part: ${e}`);
-                try { existingPart.dispose(); } catch (e) { /* swallow */ }
-              }
-            }
-          } else {
-            // Transport not running: safe to start at 0 (or leave stopped until Transport starts)
-            part.start(0);
-            if (existingPart) {
-              try {
-                existingPart.stop();
-                existingPart.dispose();
-              } catch (e) {
-                if (DEBUG.ENABLED) console.warn(`[AUDIO] Error disposing existing part: ${e}`);
-              }
-            }
-          }
-        } catch (e) {
-          if (DEBUG.ENABLED) console.warn(`[AUDIO] Error while starting part: ${e}`);
-          // Fallback: ensure part is at least created and registered
-          try { part.start(0); } catch (err) { if (DEBUG.ENABLED) console.warn('[AUDIO] Fallback start failed:', err); }
+        
+        // Graceful hot-swap of Part during playback
+        if (existingPart) {
+          this.hotSwapPart(track, stepCount);
+        } else {
+          // No existing part, create new one
+          this.createAndStartPart(track, stepCount);
         }
-
-        // register part and state after start to ensure any callbacks see it as active
-        this.parts.set(track.id, part);
-        this.partStates.set(track.id, { stepCount });
-
-        if (DEBUG.ENABLED) console.log(`[AUDIO] Part created for track ${track.id} with ${stepCount} steps (started ${Tone.Transport.state === 'started' && this.isRunning ? 'synced (+0)' : 'at 0'})`);
-
-        this.parts.set(track.id, part);
-        this.partStates.set(track.id, { stepCount });
-
-        if (DEBUG.ENABLED) console.log(`[AUDIO] Part created for track ${track.id} with ${stepCount} steps`);
-
-        activePartsCount++;
-      } else {
-        activePartsCount++;
       }
     });
-
+    
     // === PHASE 4: Master Loop (Global Step) - Create once ===
-    if (!this.masterLoop) {
-      let globalStep = 0;
-      this.masterLoop = new Tone.Loop((time) => {
-        Tone.Draw.schedule(() => {
-          onGlobalStep(globalStep);
-          globalStep = (globalStep + 1) % 16;
-        }, time);
-      }, "16n").start(0);
+    if (!this.masterLoop && this.isInitialized) {
+      this.createMasterLoop();
     }
-
+    
     // === PHASE 5: Log stats if interval reached ===
     this.logStatsIfNeeded();
   }
 
-  private logStatsIfNeeded(): void {
-    if (!DEBUG.ENABLED) return;
+  /**
+   * Hot-swap a Part during playback without losing sync.
+   * This is used when stepCount changes during playback.
+   */
+  private hotSwapPart(track: Track, stepCount: number): void {
+    const existingPart = this.parts.get(track.id);
+    
+    // Calculate current position in the loop for sync
+    const transportPosition = Transport.position;
+    
+    // Create new part first
+    const newPart = this.createPartForTrack({ ...track, stepCount });
+    if (!newPart) return;
+    
+    if (this.isRunning && Transport.state === 'started') {
+      // Schedule the swap to happen at the next measure boundary for clean transition
+      // This prevents audio glitches and keeps things in sync
+      const nextMeasure = this.getNextMeasureBoundary();
+      
+            if (DEBUG_CONFIG.ENABLED) {
+        console.log(`[AUDIO] Hot-swap scheduled for track ${track.id} at ${nextMeasure}, current position: ${transportPosition}`);
+      }
+      
+      // Stop old part at next measure boundary
+      try {
+        existingPart?.stop(nextMeasure);
+      } catch (e) {
+        if (DEBUG_CONFIG.ENABLED) console.warn('[AUDIO] Error scheduling old part stop:', e);
+      }
+      
+      // Start new part at next measure boundary
+      try {
+        newPart.start(nextMeasure);
+      } catch (e) {
+        if (DEBUG_CONFIG.ENABLED) console.warn('[AUDIO] Error scheduling new part start:', e);
+      }
+      
+      // Dispose old part after a delay to ensure clean handoff
+      if (existingPart) {
+        setTimeout(() => {
+          try {
+            existingPart.dispose();
+          } catch (e) {
+            if (DEBUG_CONFIG.ENABLED) console.warn('[AUDIO] Error disposing old part after hot-swap:', e);
+          }
+        }, 500);
+      }
+    } else {
+      // Transport not running, safe to swap immediately
+      if (existingPart) {
+        try {
+          existingPart.stop();
+          existingPart.dispose();
+        } catch (e) {
+          if (DEBUG_CONFIG.ENABLED) console.warn('[AUDIO] Error disposing old part:', e);
+        }
+      }
+      
+      try {
+        newPart.start(0);
+      } catch (e) {
+        if (DEBUG_CONFIG.ENABLED) console.warn('[AUDIO] Error starting new part:', e);
+      }
+    }
+    
+    // Update maps
+    this.parts.set(track.id, newPart);
+    this.partStates.set(track.id, { stepCount });
+    
+    if (DEBUG_CONFIG.ENABLED) {
+      console.log(`[AUDIO] Part hot-swapped for track ${track.id} with ${stepCount} steps`);
+    }
+  }
 
+  /**
+   * Get the next measure boundary for scheduling.
+   * Returns a time string that can be used with js scheduling.
+   */
+  private getNextMeasureBoundary(): string {
+    try {
+      const position = Transport.position;
+      // Parse current position (format: "bars:beats:sixteenths")
+      const parts = position.toString().split(':');
+      const currentBar = parseInt(parts[0]) || 0;
+      const currentBeat = parseFloat(parts[1]) || 0;
+      const currentSixteenth = parseFloat(parts[2]) || 0;
+      
+      // If we're at the very start of a measure, use current position + small offset
+      if (currentBeat < 0.1 && currentSixteenth < 0.1) {
+        return `+0.05`;
+      }
+      
+      // Otherwise, schedule for start of next measure
+      const nextBar = currentBar + 1;
+      return `${nextBar}:0:0`;
+    } catch (e) {
+      if (DEBUG_CONFIG.ENABLED) console.warn('[AUDIO] Error calculating next measure boundary:', e);
+      return "+1m"; // Fallback: next measure
+    }
+  }
+
+  /**
+   * Create and start a new Part for a track.
+   */
+  private createAndStartPart(track: Track, stepCount: number): void {
+    const newPart = this.createPartForTrack({ ...track, stepCount });
+    if (!newPart) return;
+    
+    if (this.isRunning && Transport.state === 'started') {
+      try {
+        // Start immediately synced with transport
+        newPart.start("+0");
+      } catch (e) {
+        if (DEBUG_CONFIG.ENABLED) console.warn('[AUDIO] Error starting new part:', e);
+      }
+    } else {
+      try {
+        newPart.start(0);
+      } catch (e) {
+        if (DEBUG_CONFIG.ENABLED) console.warn('[AUDIO] Error starting new part at 0:', e);
+      }
+    }
+    
+    this.parts.set(track.id, newPart);
+    this.partStates.set(track.id, { stepCount });
+    
+    if (DEBUG_CONFIG.ENABLED) {
+      console.log(`[AUDIO] Part created for track ${track.id} with ${stepCount} steps, running=${this.isRunning}`);
+    }
+  }
+
+  /**
+   * Create the master loop for global step tracking.
+   */
+  private createMasterLoop(): void {
+    let globalStep = 0;
+    
+    this.masterLoop = new Loop((time) => {
+      if (this.onGlobalStepCallback) {
+        Draw.schedule(() => {
+          this.onGlobalStepCallback!(globalStep);
+          globalStep = (globalStep + 1) % this.globalStepCount;
+        }, time);
+      }
+    }, "16n"); // 16th note interval
+    
+    if (this.isRunning) {
+      try {
+        this.masterLoop.start(0);
+      } catch (e) {
+        if (DEBUG_CONFIG.ENABLED) console.warn('[AUDIO] Error starting master loop:', e);
+      }
+    }
+    
+    if (DEBUG_CONFIG.ENABLED) {
+      console.log('[AUDIO] Master loop created');
+    }
+  }
+
+  // ============================================================================
+  // CLEANUP & DISPOSAL
+  // ============================================================================
+
+  public cleanupTrack(trackId: string): void {
+    try {
+      // Cleanup channel
+      const ch = this.channels.get(trackId);
+      if (ch) {
+        // Release any held voices
+        if (ch.synth instanceof PolySynth) {
+          try {
+            ch.synth.releaseAll();
+          } catch (e) {}
+        }
+        
+        // Dispose all nodes in reverse signal chain order
+        try { ch.synth.dispose(); } catch (e) {}
+        try { ch.filter.dispose(); } catch (e) {}
+        try { ch.distortion.dispose(); } catch (e) {}
+        try { ch.delay.dispose(); } catch (e) {}
+        try { ch.reverb.dispose(); } catch (e) {}
+        try { ch.panner.dispose(); } catch (e) {}
+        try { ch.volume.dispose(); } catch (e) {}
+        
+        this.channels.delete(trackId);
+      }
+      
+      // Cleanup part
+      const part = this.parts.get(trackId);
+      if (part) {
+        try {
+          part.stop();
+          part.dispose();
+        } catch (e) {}
+        this.parts.delete(trackId);
+      }
+      
+      this.partStates.delete(trackId);
+      this.currentTracks.delete(trackId);
+      this.gainLimiter.unregisterTrack(trackId);
+      
+      if (DEBUG_CONFIG.ENABLED) {
+        console.log(`[AUDIO] Track ${trackId} cleaned up`);
+      }
+    } catch (e) {
+      if (DEBUG_CONFIG.ENABLED) {
+        console.error(`[AUDIO] Error cleaning up track ${trackId}:`, e);
+      }
+    }
+  }
+
+  public dispose(): void {
+    if (DEBUG_CONFIG.ENABLED) {
+      console.log('[AUDIO] Disposing audio engine');
+    }
+    
+    // Remove page visibility listener
+    if (this.pageVisibilityHandler) {
+      document.removeEventListener('visibilitychange', this.pageVisibilityHandler);
+      this.pageVisibilityHandler = null;
+    }
+    
+    // Hard stop everything
+    this.hardStop();
+    
+    // Cleanup all channels
+    for (const trackId of this.channels.keys()) {
+      this.cleanupTrack(trackId);
+    }
+    
+    // Dispose master limiter and recorder
+    if (this.masterLimiter) {
+      try {
+        this.masterLimiter.dispose();
+      } catch (e) {}
+      this.masterLimiter = null;
+    }
+    
+    if (this.recorder) {
+      try {
+        this.recorder.dispose();
+      } catch (e) {}
+      this.recorder = null;
+    }
+    
+    // Clear all maps
+    this.channels.clear();
+    this.parts.clear();
+    this.partStates.clear();
+    this.currentTracks.clear();
+    
+    // Reset managers
+    this.polyphonyManager.reset();
+    this.gainLimiter.reset();
+    
+    this.isInitialized = false;
+  }
+
+  // ============================================================================
+  // RECORDING
+  // ============================================================================
+
+  public async startRecording(): Promise<void> {
+    await this.ensureInitialized();
+    if (this.recorder) {
+      try {
+        this.recorder.start();
+        if (DEBUG_CONFIG.ENABLED) {
+          console.log('[AUDIO] Recording started');
+        }
+      } catch (e) {
+        if (DEBUG_CONFIG.ENABLED) {
+          console.error('[AUDIO] Error starting recording:', e);
+        }
+      }
+    }
+  }
+
+  public async stopRecording(): Promise<string> {
+    if (!this.recorder) return '';
+    
+    try {
+      const blob = await this.recorder.stop();
+      if (DEBUG_CONFIG.ENABLED) {
+        console.log('[AUDIO] Recording stopped, blob size:', blob.size);
+      }
+      return URL.createObjectURL(blob);
+    } catch (e) {
+      if (DEBUG_CONFIG.ENABLED) {
+        console.error('[AUDIO] Error stopping recording:', e);
+      }
+      return '';
+    }
+  }
+
+  // ============================================================================
+  // STATS & DEBUGGING
+  // ============================================================================
+
+  private logStatsIfNeeded(): void {
+    if (!DEBUG_CONFIG.ENABLED) return;
+    
     const now = Date.now();
-    if (now - this.lastStatsLog >= DEBUG.LOG_INTERVAL_MS) {
+    if (now - this.lastStatsLog >= DEBUG_CONFIG.LOG_INTERVAL_MS) {
       const stats = this.getAudioStats();
       console.log(`[AUDIO STATS] Voices: ${stats.activeVoices}/${POLYPHONY_CONFIG.MAX_TOTAL_VOICES} | Parts: ${stats.activeParts} | CPU: ~${stats.estimatedCpuLoad.toFixed(1)}% | Overloaded: ${stats.isOverloaded}`);
       this.lastStatsLog = now;
@@ -764,106 +1106,43 @@ class AudioEngine {
     const activeParts = this.parts.size;
     const estimatedCpuLoad = (totalVoices / POLYPHONY_CONFIG.MAX_TOTAL_VOICES) * 100;
     const isOverloaded = totalVoices >= POLYPHONY_CONFIG.VOICE_CLEANUP_THRESHOLD;
-
+    
     return {
       totalVoices,
       activeVoices: totalVoices,
       activeParts,
       estimatedCpuLoad,
-      isOverloaded
+      isOverloaded,
+      engine: 'tone.js'
     };
   }
 
-  /**
-   * Clean up all resources for a track.
-   * Properly disposes Tone.js nodes to prevent memory leaks.
-   */
-  public cleanupTrack(trackId: string): void {
-    try {
-      const ch = this.channels.get(trackId);
-      if (ch) {
-        // Release any held voices
-        if (ch.synth instanceof Tone.PolySynth) {
-          ch.synth.triggerRelease();
-        }
+  // ============================================================================
+  // UTILITY METHODS
+  // ============================================================================
 
-        // Dispose all nodes in reverse order
-        try { ch.synth.dispose(); } catch (e) { if (DEBUG.ENABLED) console.warn(`Error disposing synth: ${e}`); }
-        try { ch.filter.dispose(); } catch (e) { if (DEBUG.ENABLED) console.warn(`Error disposing filter: ${e}`); }
-        try { ch.distortion.dispose(); } catch (e) { if (DEBUG.ENABLED) console.warn(`Error disposing distortion: ${e}`); }
-        try { ch.delay.dispose(); } catch (e) { if (DEBUG.ENABLED) console.warn(`Error disposing delay: ${e}`); }
-        try { ch.reverb.dispose(); } catch (e) { if (DEBUG.ENABLED) console.warn(`Error disposing reverb: ${e}`); }
-        try { ch.panner.dispose(); } catch (e) { if (DEBUG.ENABLED) console.warn(`Error disposing panner: ${e}`); }
-        try { ch.volume.dispose(); } catch (e) { if (DEBUG.ENABLED) console.warn(`Error disposing volume: ${e}`); }
-
-        this.channels.delete(trackId);
-      }
-
-      const part = this.parts.get(trackId);
-      if (part) {
-        try {
-          part.stop();
-          part.dispose();
-        } catch (e) {
-          if (DEBUG.ENABLED) console.warn(`Error disposing part: ${e}`);
-        }
-        this.parts.delete(trackId);
-      }
-
-      this.partStates.delete(trackId);
-      this.currentTracks.delete(trackId);
-      this.gainLimiter.unregisterTrack(trackId);
-
-      if (DEBUG.ENABLED) console.log(`[AUDIO] Track ${trackId} cleaned up`);
-    } catch (e) {
-      if (DEBUG.ENABLED) console.error(`[AUDIO] Error cleaning up track ${trackId}: ${e}`);
-    }
+  public isEngineRunning(): boolean {
+    return this.isRunning;
   }
 
-  /**
-   * Dispose all resources and prepare for shutdown.
-   * Call before unmounting component or closing app.
-   */
-  public dispose(): void {
-    if (DEBUG.ENABLED) console.log('[AUDIO] Disposing audio engine');
-
-    // Remove page visibility listener
-    if (this.pageVisibilityHandler) {
-      document.removeEventListener('visibilitychange', this.pageVisibilityHandler);
-    }
-
-    // Hard stop
-    this.hardStop();
-
-    // Cleanup all channels
-    for (const trackId of this.channels.keys()) {
-      this.cleanupTrack(trackId);
-    }
-
-    // Dispose master limiter and recorder
-    try { this.masterLimiter.dispose(); } catch (e) { if (DEBUG.ENABLED) console.warn(`Error disposing limiter: ${e}`); }
-    try { this.recorder.dispose(); } catch (e) { if (DEBUG.ENABLED) console.warn(`Error disposing recorder: ${e}`); }
-
-    this.channels.clear();
-    this.parts.clear();
-    this.currentTracks.clear();
+  public isEngineInitialized(): boolean {
+    return this.isInitialized;
   }
 
-  public async startRecording(): Promise<void> {
-    if (Tone.context.state !== 'running') {
-      await Tone.start();
-    }
-    this.recorder.start();
+  public getTransportState(): string {
+    return Transport.state;
   }
 
-  public async stopRecording(): Promise<string> {
-    const blob = await this.recorder.stop();
-    const url = URL.createObjectURL(blob);
-    return url;
+  public getTransportPosition(): string {
+    return Transport.position.toString();
   }
 }
 
-export let audioEngine = new AudioEngine();
+// ============================================================================
+// SINGLETON EXPORT
+// ============================================================================
+
+export let audioEngine = new HybridAudioEngine();
 
 // Support HMR - recreate engine on hot reload
 if (import.meta.hot) {
@@ -871,8 +1150,9 @@ if (import.meta.hot) {
     if (audioEngine) {
       audioEngine.dispose();
     }
-    audioEngine = new AudioEngine();
-    if (DEBUG.ENABLED) console.log('[AUDIO] Engine recreated after HMR');
+    audioEngine = new HybridAudioEngine();
+    if (DEBUG_CONFIG.ENABLED) {
+      console.log('[AUDIO] Engine recreated after HMR');
+    }
   });
 }
-

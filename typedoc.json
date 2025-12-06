@@ -1,0 +1,17 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "skipErrorChecking": true,
+  "entryPoints": ["src"],
+  "entryPointStrategy": "expand",
+  "out": "docs",
+  "plugin": ["typedoc-plugin-markdown"],
+  "exclude": [
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/node_modules/**"
+  ],
+  "excludePrivate": true,
+  "excludeInternal": true,
+  "readme": "none",
+  "tsconfig": "./tsconfig.json"
+}
