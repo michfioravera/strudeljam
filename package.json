@@ -4,13 +4,14 @@
   "version": "3.0.0",
   "type": "module",
   "scripts": {
-    "docs": "typedoc --plugin ./typedoc-plugin.cjs --plugin ./typedoc-plugin-italian.cjs",
+    "docs": "typedoc --plugin ./typedoc-plugin.cjs --lang it",
     "docs:watch": "chokidar \"src/**/*.ts\" \"src/**/*.tsx\" -c \"npm run docs:build\"",
     "dev": "vite",
     "build": "npm run docs && vite build",
     "lint": "eslint .",
     "lint:dualite": "eslint --config eslint.dualite.config.js .",
     "tsc:dualite": "yarn tsc -p tsconfig.dualite.json",
+    "postinstall": "cp ./locales/it.cjs ./node_modules/typedoc/dist/lib/internationalization/locales/it.cjs",
     "preview": "vite preview"
   },
   "dependencies": {

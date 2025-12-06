@@ -1,6 +1,7 @@
 {
   "$schema": "https://typedoc.org/schema.json",
   "skipErrorChecking": true,
+  "lang": "it",
 
   "entryPoints": ["src"],
   "entryPointStrategy": "expand",
