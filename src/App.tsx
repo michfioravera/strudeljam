@@ -28,6 +28,15 @@ interface NumberInputProps {
   label?: string;
 }
 
+// NumberInput Component
+interface NumberInputProps {
+  value: number;
+  onChange: (val: number) => void;
+  min?: number;
+  max?: number;
+  label?: string;
+}
+
 const NumberInput: React.FC<NumberInputProps> = React.memo(
   ({ value, onChange, min = 0, max = 100, label = '' }) => {
     const [localValue, setLocalValue] = useState<string>(value.toString());
@@ -67,8 +76,28 @@ const NumberInput: React.FC<NumberInputProps> = React.memo(
     );
 
     return (
-      <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 group hover:border-slate-600 transition-colors">
-        <span className="text-xs text-slate-400 font-bold tracking-wider group-hover:text-slate-300 whitespace-nowrap">
+      <div 
+        className={clsx(
+          "relative bg-slate-800 rounded-lg border border-slate-700",
+          "group hover:border-slate-600 transition-colors",
+          "flex items-center",
+          // Mobile: padding ridotto | Desktop: padding normale
+          "px-2 py-1 md:px-3 md:py-1.5 md:gap-2"
+        )}
+      >
+        {/* Label: floating con bordo su mobile, inline su desktop */}
+        <span
+          className={clsx(
+            "font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap",
+            "group-hover:text-slate-300 transition-colors",
+            // Mobile: floating label sopra il bordo, con bordo arrotondato
+            "absolute -top-2 left-2 text-[7px] bg-slate-800 px-1 py-0 z-10",
+            "rounded border border-slate-600",
+            // Desktop (md+): inline, rimuovi bordo
+            "md:static md:text-xs md:bg-transparent md:px-0 md:py-0",
+            "md:border-0 md:rounded-none"
+          )}
+        >
           {label}
         </span>
         <input
@@ -77,7 +106,7 @@ const NumberInput: React.FC<NumberInputProps> = React.memo(
           onChange={(e) => setLocalValue(e.target.value)}
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
-          className="w-12 bg-transparent text-center font-mono focus:outline-none text-cyan-400 font-bold"
+          className="w-10 md:w-12 bg-transparent text-center font-mono focus:outline-none text-cyan-400 font-bold text-sm md:text-base"
           min={min}
           max={max}
         />
@@ -454,7 +483,13 @@ function App() {
         <header className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur border-b border-slate-800 shadow-xl">
           <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32">
+              {/* Logo: nascosto sotto 34px */}
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                width="32" 
+                height="32"
+                className="hidden min-[340px]:block"
+              >
                 <defs>
                   <filter id="glow">
                     <feGaussianBlur stdDeviation="2" result="blur" />
@@ -464,10 +499,11 @@ function App() {
                     </feMerge>
                   </filter>
                 </defs>
-                <text x="50%" y="50%" fontSize="42" fontFamily="serif" textAnchor="middle" dominantBaseline="middle" fill="cyan" filter="url(#glow)">
+                <text x="50%" y="50%" fontSize="36" fontFamily="serif" textAnchor="middle" dominantBaseline="middle" fill="cyan" filter="url(#glow)">
                   ꜱᴊ
                 </text>
               </svg>
+              {/* Testo: nascosto sotto 640px (sm) */}
               <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-400 hidden sm:block">
                 ꜱᴛʀᴜᴅᴇʟᴊᴀᴍ
               </h1>
@@ -487,7 +523,7 @@ function App() {
                 onChange={setDefaultStepCount}
                 min={SEQUENCER_CONFIG.MIN_STEPS}
                 max={SEQUENCER_CONFIG.MAX_STEPS}
-                label="STEPS"
+                label="PASSI"
               />
 
               <button
@@ -504,7 +540,7 @@ function App() {
                 ) : (
                   <Play size={18} fill="currentColor" />
                 )}
-                <span className="hidden sm:inline">{isPlaying ? 'Ferma' : 'Avvia'}</span>
+                <span className="hidden sm:inline">{isPlaying ? 'Pausa' : 'Avvio'}</span>
               </button>
 
               <button
@@ -515,7 +551,7 @@ function App() {
                     ? 'bg-cyan-500 text-white border-cyan-500 animate-pulse'
                     : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-cyan-400 hover:border-cyan-400/50'
                 )}
-                title="Record Audio"
+                title="Registra"
               >
                 {isRecording ? <MicOff size={18} /> : <Mic size={18} />}
               </button>
@@ -528,7 +564,7 @@ function App() {
                     ? 'bg-slate-700 text-cyan-400 border-cyan-500/50'
                     : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-cyan-400'
                 )}
-                title="Show/Hide Code"
+                title="Codice"
               >
                 <Code size={18} />
               </button>
@@ -644,17 +680,6 @@ function App() {
                 spellCheck={false}
                 placeholder="// Il codice Strudel apparirà qui..."
               />
-            </div>
-            <div className="p-4 bg-slate-900 border-t border-slate-800 text-xs text-slate-500">
-              <p>Modifica il codice per aggiornare la UI (sperimentale).</p>
-              <p className="mt-1">
-                Supporta <code className="text-cyan-400">.note</code>,{' '}
-                <code className="text-cyan-400">.gain</code>,{' '}
-                <code className="text-cyan-400">.pan</code>,{' '}
-                <code className="text-cyan-400">.delay</code>,{' '}
-                <code className="text-cyan-400">.room</code>,{' '}
-                <code className="text-cyan-400">.distort</code>.
-              </p>
             </div>
             <div className="flex flex-wrap justify-center sm:justify-between items-center py-2 px-4 text-xs sm:text-sm text-gray-500 border-t border-gray-200 gap-x-4 gap-y-1">
   <a
