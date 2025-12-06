@@ -450,7 +450,7 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen bg-slate-900 text-slate-100 font-sans selection:bg-cyan-500/30">
+      <div className="min-h-screen bg-slate-900 overflow-x-hidden text-slate-100 font-sans selection:bg-cyan-500/30">
         <header className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur border-b border-slate-800 shadow-xl">
           <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
             <div className="flex items-center gap-2">
