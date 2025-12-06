@@ -34,34 +34,34 @@ export type InstrumentType =
 export interface InstrumentDefinition {
   id: InstrumentType;
   name: string;
-  category: 'Drums' | 'Synths' | 'Noise';
+  category: 'Casse' | 'Sintetizzatori' | 'Rumori';
   defaultNote: string;
   color: string;
 }
 
 export const INSTRUMENTS: InstrumentDefinition[] = [
-  // Drums
-  { id: 'kick', name: 'Kick', category: 'Drums', defaultNote: 'C2', color: 'bg-red-500' },
-  { id: 'snare', name: 'Snare', category: 'Drums', defaultNote: 'D2', color: 'bg-orange-500' },
-  { id: 'hat', name: 'Hi-Hat', category: 'Drums', defaultNote: 'F#2', color: 'bg-yellow-500' },
-  { id: 'open_hat', name: 'Open Hat', category: 'Drums', defaultNote: 'A#2', color: 'bg-yellow-600' },
-  { id: 'clap', name: 'Clap', category: 'Drums', defaultNote: 'D#2', color: 'bg-pink-500' },
-  { id: 'tom', name: 'Tom', category: 'Drums', defaultNote: 'G2', color: 'bg-amber-600' },
-  { id: 'rim', name: 'Rimshot', category: 'Drums', defaultNote: 'C#2', color: 'bg-orange-400' },
-  { id: 'crash', name: 'Crash', category: 'Drums', defaultNote: 'C#3', color: 'bg-cyan-500' },
-  { id: 'ride', name: 'Ride', category: 'Drums', defaultNote: 'D#3', color: 'bg-teal-500' },
-  { id: 'perc', name: 'Percussion', category: 'Drums', defaultNote: 'C3', color: 'bg-lime-500' },
+  // Casse
+  { id: 'kick', name: 'Kick', category: 'Casse', defaultNote: 'C2', color: 'bg-red-500' },
+  { id: 'snare', name: 'Snare', category: 'Casse', defaultNote: 'D2', color: 'bg-orange-500' },
+  { id: 'hat', name: 'Hi-Hat', category: 'Casse', defaultNote: 'F#2', color: 'bg-yellow-500' },
+  { id: 'open_hat', name: 'Open Hat', category: 'Casse', defaultNote: 'A#2', color: 'bg-yellow-600' },
+  { id: 'clap', name: 'Clap', category: 'Casse', defaultNote: 'D#2', color: 'bg-pink-500' },
+  { id: 'tom', name: 'Tom', category: 'Casse', defaultNote: 'G2', color: 'bg-amber-600' },
+  { id: 'rim', name: 'Rimshot', category: 'Casse', defaultNote: 'C#2', color: 'bg-orange-400' },
+  { id: 'crash', name: 'Crash', category: 'Casse', defaultNote: 'C#3', color: 'bg-cyan-500' },
+  { id: 'ride', name: 'Ride', category: 'Casse', defaultNote: 'D#3', color: 'bg-teal-500' },
+  { id: 'perc', name: 'Percussion', category: 'Casse', defaultNote: 'C3', color: 'bg-lime-500' },
   
-  // Synths
-  { id: 'sine', name: 'Sine', category: 'Synths', defaultNote: 'C4', color: 'bg-blue-500' },
-  { id: 'triangle', name: 'Triangle', category: 'Synths', defaultNote: 'C4', color: 'bg-indigo-500' },
-  { id: 'square', name: 'Square', category: 'Synths', defaultNote: 'C4', color: 'bg-purple-500' },
-  { id: 'sawtooth', name: 'Sawtooth', category: 'Synths', defaultNote: 'C4', color: 'bg-violet-500' },
+  // Sintetizzatori
+  { id: 'sine', name: 'Sine', category: 'Sintetizzatori', defaultNote: 'C4', color: 'bg-blue-500' },
+  { id: 'triangle', name: 'Triangle', category: 'Sintetizzatori', defaultNote: 'C4', color: 'bg-indigo-500' },
+  { id: 'square', name: 'Square', category: 'Sintetizzatori', defaultNote: 'C4', color: 'bg-purple-500' },
+  { id: 'sawtooth', name: 'Sawtooth', category: 'Sintetizzatori', defaultNote: 'C4', color: 'bg-violet-500' },
   
-  // Noise
-  { id: 'white', name: 'White Noise', category: 'Noise', defaultNote: 'C3', color: 'bg-gray-400' },
-  { id: 'pink', name: 'Pink Noise', category: 'Noise', defaultNote: 'C3', color: 'bg-pink-400' },
-  { id: 'brown', name: 'Brown Noise', category: 'Noise', defaultNote: 'C3', color: 'bg-amber-700' },
+  // Rumori
+  { id: 'white', name: 'White Noise', category: 'Rumori', defaultNote: 'C3', color: 'bg-gray-400' },
+  { id: 'pink', name: 'Pink Noise', category: 'Rumori', defaultNote: 'C3', color: 'bg-pink-400' },
+  { id: 'brown', name: 'Brown Noise', category: 'Rumori', defaultNote: 'C3', color: 'bg-amber-700' },
 ];
 
 export const DEFAULT_STEP_COUNT = 16;

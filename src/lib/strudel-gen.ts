@@ -4,11 +4,11 @@ import { generateId } from '../utils/id';
 
 export function generateStrudelCode(tracks: Track[], bpm: number): string {
   if (tracks.length === 0) {
-    return `// No tracks yet\n// Add instruments to generate Strudel code\n\nsetcps(${(bpm / 60 / 4).toFixed(4)})`;
+    return `// Nessuna traccia\n// Aggiungi strumenti per generare il codice\n\nsetcps(${(bpm / 60 / 4).toFixed(4)})`;
   }
 
   const cps = bpm / 60 / 4;
-  let code = `// StrudelJam v3.0 - Generated Code\n`;
+  let code = `// StrudelJam v3.0 - Codice Generato\n`;
   code += `// BPM: ${bpm}\n\n`;
   code += `setcps(${cps.toFixed(4)})\n\n`;
 
@@ -33,7 +33,7 @@ export function generateStrudelCode(tracks: Track[], bpm: number): string {
 
     const pattern = patternParts.join(' ');
 
-    let expr = `// Track ${index + 1}: ${instDef.name}\n`;
+    let expr = `// Traccia ${index + 1}: ${instDef.name}\n`;
     expr += `note("${pattern}")`;
     expr += `\n  .sound("${getStrudelSound(track.instrument)}")`;
 
@@ -63,7 +63,7 @@ export function generateStrudelCode(tracks: Track[], bpm: number): string {
     }
 
     if (track.muted) {
-      expr = `// MUTED\n// ${expr.split('\n').join('\n// ')}`;
+      expr = `// DISATTIVATA\n// ${expr.split('\n').join('\n// ')}`;
     }
 
     trackCodes.push(expr);
@@ -108,8 +108,8 @@ export function parseStrudelCode(code: string): Partial<Track>[] | null {
         return;
       }
 
-      const isMuted = trimmedBlock.includes('// MUTED');
-      const cleanBlock = trimmedBlock.replace(/\/\/ MUTED\n?/g, '').replace(/\/\/ /g, '');
+      const isMuted = trimmedBlock.includes('// DISATTIVATA');
+      const cleanBlock = trimmedBlock.replace(/\/\/ DISATTIVATA\n?/g, '').replace(/\/\/ /g, '');
 
       const noteMatch = cleanBlock.match(/note\("([^"]+)"\)/);
       if (!noteMatch) return;

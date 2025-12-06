@@ -11,7 +11,7 @@ import {
   SEQUENCER_CONFIG,
 } from './lib/constants';
 import { generateStrudelCode, parseStrudelCode } from './lib/strudel-gen';
-import { audioEngine } from './lib/audio-engine-hybrid';
+import { audioEngine } from './lib/audio-engine';
 import { TrackList } from './components/TrackList';
 import { SequenceList } from './components/SequenceList';
 import { ErrorBoundary, AudioErrorBoundary } from './components/ErrorBoundary';
@@ -102,7 +102,7 @@ const createDefaultSteps = (defaultNote: string = 'C3'): Step[] => {
 
 const createDefaultSequence = (): Sequence => ({
   id: generateId(),
-  name: 'Pattern A',
+  name: 'Sequenza A',
   tracks: [],
 });
 
@@ -231,7 +231,7 @@ function App() {
   const addSequence = useCallback(() => {
     const newSeq: Sequence = {
       id: generateId(),
-      name: `Pattern ${String.fromCharCode(65 + sequences.length)}`,
+      name: `Sequenza ${String.fromCharCode(65 + sequences.length)}`,
       tracks: [],
     };
     setSequences((prev) => [...prev, newSeq]);
@@ -419,11 +419,11 @@ function App() {
         setTracks(fullTracks);
         console.log('[APP] Code applied, tracks:', fullTracks.length);
       } else {
-        alert('Invalid code or unsupported format.');
+        alert('Codice non valido o formato non supportato.');
       }
     } catch (error) {
       console.error('[APP] Code parse error:', error);
-      alert('Error parsing code. Please check the syntax.');
+      alert('Errore durante l\'analisi sintattica del codice. Controlla la sintassi.');
     }
   }, [codeContent, setTracks]);
 
@@ -444,7 +444,7 @@ function App() {
   }, []);
 
   const instrumentCategories = useMemo(
-    () => ['Drums', 'Synths', 'Noise'] as const,
+    () => ['Casse', 'Sintetizzatori', 'Rumori'] as const,
     []
   );
 
@@ -454,11 +454,22 @@ function App() {
         <header className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur border-b border-slate-800 shadow-xl">
           <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-cyan-500/20">
-                <Music size={20} className="text-white" />
-              </div>
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32">
+                <defs>
+                  <filter id="glow">
+                    <feGaussianBlur stdDeviation="2" result="blur" />
+                    <feMerge>
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                </defs>
+                <text x="50%" y="50%" fontSize="42" fontFamily="serif" textAnchor="middle" dominantBaseline="middle" fill="cyan" filter="url(#glow)">
+                  ꜱᴊ
+                </text>
+              </svg>
               <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-400 hidden sm:block">
-                Strudel UI v3.0
+                ꜱᴛʀᴜᴅᴇʟᴊᴀᴍ³
               </h1>
             </div>
 
@@ -493,7 +504,7 @@ function App() {
                 ) : (
                   <Play size={18} fill="currentColor" />
                 )}
-                <span className="hidden sm:inline">{isPlaying ? 'Stop' : 'Play'}</span>
+                <span className="hidden sm:inline">{isPlaying ? 'Ferma' : 'Avvia'}</span>
               </button>
 
               <button
@@ -501,8 +512,8 @@ function App() {
                 className={clsx(
                   'p-2 rounded-lg transition-all border',
                   isRecording
-                    ? 'bg-red-500 text-white border-red-500 animate-pulse'
-                    : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-red-400 hover:border-red-400/50'
+                    ? 'bg-cyan-500 text-white border-cyan-500 animate-pulse'
+                    : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-cyan-400 hover:border-cyan-400/50'
                 )}
                 title="Record Audio"
               >
@@ -603,10 +614,10 @@ function App() {
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-900">
               <h2 className="font-mono text-sm text-cyan-400 font-bold flex items-center gap-2">
                 <Code size={16} />
-                STRUDEL CODE
+                Codice sequenza
                 {pinnedSequenceId && (
                   <span className="text-[10px] bg-cyan-900/50 text-cyan-300 px-1.5 py-0.5 rounded border border-cyan-700/50">
-                    PINNED VIEW
+                    fissata
                   </span>
                 )}
               </h2>
@@ -615,7 +626,7 @@ function App() {
                   onClick={applyCode}
                   className="text-xs bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded text-slate-300 border border-slate-700 transition-colors"
                 >
-                  Apply Changes
+                  Applica
                 </button>
                 <button
                   onClick={handleToggleCode}
@@ -631,13 +642,13 @@ function App() {
                 onChange={handleCodeChange}
                 className="w-full h-full bg-slate-950 text-slate-300 font-mono text-sm p-4 resize-none focus:outline-none leading-relaxed"
                 spellCheck={false}
-                placeholder="// Strudel code will appear here..."
+                placeholder="// Il codice Strudel apparirà qui..."
               />
             </div>
             <div className="p-4 bg-slate-900 border-t border-slate-800 text-xs text-slate-500">
-              <p>Edit code to update the UI (experimental).</p>
+              <p>Modifica il codice per aggiornare la UI (sperimentale).</p>
               <p className="mt-1">
-                Supports <code className="text-cyan-400">.note</code>,{' '}
+                Supporta <code className="text-cyan-400">.note</code>,{' '}
                 <code className="text-cyan-400">.gain</code>,{' '}
                 <code className="text-cyan-400">.pan</code>,{' '}
                 <code className="text-cyan-400">.delay</code>,{' '}
@@ -645,6 +656,27 @@ function App() {
                 <code className="text-cyan-400">.distort</code>.
               </p>
             </div>
+            <div className="flex flex-wrap justify-center sm:justify-between items-center py-2 px-4 text-xs sm:text-sm text-gray-500 border-t border-gray-200 gap-x-4 gap-y-1">
+  <a
+    href="https://www.gnu.org/licenses/agpl-3.0.html"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="hover:underline"
+  >
+    AGPL-3.0
+  </a>
+  <a href="/docs/index.html" target="_blank" rel="noopener noreferrer" className="hover:underline">
+    Docs
+  </a>
+  <a
+    href="https://github.com/michfioravera/strudeljam"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="hover:underline"
+  >
+    Sorgente
+  </a>
+</div>
           </div>
         </main>
       </div>

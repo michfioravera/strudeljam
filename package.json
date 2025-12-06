@@ -1,9 +1,13 @@
 {
-  "name": "vite-react-typescript-starter",
+  "name": "strudeljam",
   "private": true,
-  "version": "0.0.0",
+  "version": "3.0.0",
   "type": "module",
   "scripts": {
+    "docs:md": "typedoc --out docs src",
+    "docs:html": "npx markdown-it docs/index.md -o docs/index.html",
+    "docs:build": "npm run docs:md && npm run docs:html",
+    "docs:watch": "chokidar \"src/**/*.ts\" \"src/**/*.tsx\" -c \"npm run docs:build\"",
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
@@ -32,6 +36,7 @@
     "@types/react-dom": "^19.1.5",
     "@vitejs/plugin-react": "^4.5.0",
     "autoprefixer": "^10.4.21",
+    "chokidar-cli": "^3.0.0",
     "eslint": "^9.27.0",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-react": "^7.37.5",
@@ -41,8 +46,11 @@
     "postcss": "^8.4.35",
     "rollup": "^4.0.0",
     "tailwindcss": "^3.4.1",
+    "typedoc": "^0.28.15",
+    "typedoc-plugin-markdown": "^4.9.0",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.32.1",
-    "vite": "^6.3.5"
+    "vite": "^6.3.5",
+    "vite-plugin-static-copy": "^3.1.4"
   }
 }
