@@ -1,8 +1,35 @@
 // src/components/SequenceList.tsx
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Plus, Copy, Trash2, Edit2, Pin, PinOff } from 'lucide-react';
-import { Sequence, SEQUENCER_CONFIG } from '../lib/constants';
-import { clsx } from 'clsx';
+import { Plus, Copy, Trash2, Edit2, Pin, PinOff, ChevronDown } from 'lucide-react';
+
+interface Step {
+  active: boolean;
+  note: string;
+  velocity: number;
+}
+
+interface Track {
+  id: string;
+  instrument: string;
+  stepCount: number;
+  steps: Step[];
+  volume: number;
+  muted: boolean;
+  pan: number;
+  delay: number;
+  reverb: number;
+  distortion: number;
+}
+
+interface Sequence {
+  id: string;
+  name: string;
+  tracks: Track[];
+}
+
+const SEQUENCER_CONFIG = {
+  STEPS_PER_MEASURE: 16,
+};
 
 interface SequenceListProps {
   sequences: Sequence[];
@@ -18,7 +45,11 @@ interface SequenceListProps {
   onTogglePlayMode: () => void;
 }
 
-// Sequence Card Component
+function clsx(...classes: (string | boolean | undefined)[]) {
+  return classes.filter(Boolean).join(' ');
+}
+
+// Sequence Card Component - ORIGINALE
 interface SequenceCardProps {
   sequence: Sequence;
   isActive: boolean;
@@ -97,7 +128,6 @@ const SequenceCard: React.FC<SequenceCardProps> = React.memo(
       [onDelete]
     );
 
-    // Calculate step activity visualization
     const stepVisualization = useMemo(() => {
       return Array.from({ length: SEQUENCER_CONFIG.STEPS_PER_MEASURE }).map((_, i) => {
         const activeCount = sequence.tracks.filter(
@@ -119,7 +149,6 @@ const SequenceCard: React.FC<SequenceCardProps> = React.memo(
             : 'bg-slate-900 border-slate-700 hover:border-slate-600 opacity-70 hover:opacity-100'
         )}
       >
-        {/* Header */}
         <div
           className={clsx(
             'px-3 py-2 flex items-center justify-between border-b',
@@ -170,7 +199,6 @@ const SequenceCard: React.FC<SequenceCardProps> = React.memo(
           )}
         </div>
 
-        {/* Content - Step Visualization */}
         <div className="flex-1 p-2 flex flex-col gap-1 justify-center relative">
           {isActive && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -196,8 +224,7 @@ const SequenceCard: React.FC<SequenceCardProps> = React.memo(
           )}
         </div>
 
-        {/* Action Buttons */}
-        <div className="absolute bottom-1 right-1 flex flex-nowrap min-w-0 gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900/90 rounded p-0.5 backdrop-blur-sm border border-slate-800">
+        <div className="absolute bottom-1 right-1 flex flex-nowrap min-w-0 gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity bg-slate-900/90 rounded p-0.5 backdrop-blur-sm border border-slate-800">
           {canDelete && (
             <button
               onClick={handleDeleteClick}
@@ -229,7 +256,7 @@ const SequenceCard: React.FC<SequenceCardProps> = React.memo(
 
 SequenceCard.displayName = 'SequenceCard';
 
-// Play Mode Toggle Component
+// Play Mode Toggle Component - ORIGINALE
 interface PlayModeToggleProps {
   playMode: 'single' | 'all';
   onToggle: () => void;
@@ -282,6 +309,18 @@ export const SequenceList: React.FC<SequenceListProps> = ({
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [isExpanded, setIsExpanded] = useState(true);
+  const [isSmallHeight, setIsSmallHeight] = useState(false);
+
+  useEffect(() => {
+    const checkHeight = () => {
+      setIsSmallHeight(window.innerHeight <= 600);
+    };
+    
+    checkHeight();
+    window.addEventListener('resize', checkHeight);
+    return () => window.removeEventListener('resize', checkHeight);
+  }, []);
 
   const startEditing = useCallback((seq: Sequence, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -302,58 +341,84 @@ export const SequenceList: React.FC<SequenceListProps> = ({
     setEditName('');
   }, []);
 
+  const toggleExpanded = useCallback(() => {
+    setIsExpanded(prev => !prev);
+  }, []);
+
   const canDelete = sequences.length > 1;
 
   return (
-    <div className="w-full max-w-5xl mx-auto">
-      {/* Header */}
+    <div className="w-full max-w-5xl mx-auto pt-4 pb-2 px-4">
+      {/* Header con pulsante collapse solo su schermi piccoli */}
       <div className="flex items-center justify-between mb-3 px-1">
-        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-          Riproduci
-          <span className="bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded text-[10px] border border-slate-700">
-            {sequences.length}
-          </span>
-        </h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+            Riproduci
+            <span className="bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded text-[10px] border border-slate-700">
+              {sequences.length}
+            </span>
+          </h3>
+          {isSmallHeight && (
+            <button
+              onClick={toggleExpanded}
+              className="p-1 text-slate-400 hover:text-cyan-400 transition-colors"
+              title={isExpanded ? "Nascondi sequenze" : "Mostra sequenze"}
+            >
+              <ChevronDown 
+                size={16} 
+                className={clsx(
+                  'transition-transform',
+                  isExpanded ? 'rotate-180' : ''
+                )}
+              />
+            </button>
+          )}
+        </div>
 
         <PlayModeToggle playMode={playMode} onToggle={onTogglePlayMode} />
       </div>
 
-      {/* Sequence Cards */}
-      <div className="flex gap-3 overflow-x-auto custom-scrollbar pb-2">
-        {sequences.map((seq) => {
-          const isActive = activeSequenceId === seq.id;
-          const isPinned = pinnedSequenceId === seq.id;
-          const isEditing = editingId === seq.id;
+      {/* Sequence Cards - mostrate/nascoste in base a isExpanded su schermi piccoli */}
+      <div className={clsx(
+        'transition-all duration-300 overflow-hidden',
+        isSmallHeight && !isExpanded ? 'max-h-0 opacity-0' : 'max-h-96 opacity-100'
+      )}>
+        <div className="flex gap-3 overflow-x-auto custom-scrollbar pb-2">
+          {sequences.map((seq) => {
+            const isActive = activeSequenceId === seq.id;
+            const isPinned = pinnedSequenceId === seq.id;
+            const isEditing = editingId === seq.id;
 
-          return (
-            <SequenceCard
-              key={seq.id}
-              sequence={seq}
-              isActive={isActive}
-              isPinned={isPinned}
-              isEditing={isEditing}
-              editName={editName}
-              onSelect={() => onSelect(seq.id)}
-              onPin={() => onPin(seq.id)}
-              onDuplicate={() => onDuplicate(seq.id)}
-              onDelete={() => onDelete(seq.id)}
-              onStartEditing={(e) => startEditing(seq, e)}
-              onEditNameChange={setEditName}
-              onSaveName={saveName}
-              onCancelEdit={cancelEdit}
-              canDelete={canDelete}
-            />
-          );
-        })}
+            return (
+              <SequenceCard
+                key={seq.id}
+                sequence={seq}
+                isActive={isActive}
+                isPinned={isPinned}
+                isEditing={isEditing}
+                editName={editName}
+                onSelect={() => onSelect(seq.id)}
+                onPin={() => onPin(seq.id)}
+                onDuplicate={() => onDuplicate(seq.id)}
+                onDelete={() => onDelete(seq.id)}
+                onStartEditing={(e) => startEditing(seq, e)}
+                onEditNameChange={setEditName}
+                onSaveName={saveName}
+                onCancelEdit={cancelEdit}
+                canDelete={canDelete}
+              />
+            );
+          })}
 
-        {/* Add New Sequence Button */}
-        <button
-          onClick={onCreate}
-          className="flex-shrink-0 w-12 h-24 rounded-xl border-2 border-dashed border-slate-700 hover:border-cyan-500/50 hover:bg-slate-800/50 flex items-center justify-center text-slate-600 hover:text-cyan-500 transition-all"
-          title="Nuova Sequenza"
-        >
-          <Plus size={24} />
-        </button>
+          {/* Add New Sequence Button */}
+          <button
+            onClick={onCreate}
+            className="flex-shrink-0 w-12 h-24 rounded-xl border-2 border-dashed border-slate-700 hover:border-cyan-500/50 hover:bg-slate-800/50 flex items-center justify-center text-slate-600 hover:text-cyan-500 transition-all"
+            title="Nuova Sequenza"
+          >
+            <Plus size={24} />
+          </button>
+        </div>
       </div>
     </div>
   );

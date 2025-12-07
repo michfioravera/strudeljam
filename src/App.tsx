@@ -588,7 +588,7 @@ function App() {
 
         <main className="flex h-[calc(100vh-64px)] relative overflow-x-hidden">
           <div className="flex-1 overflow-y-auto custom-scrollbar relative">
-            <div className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur border-b border-slate-800 pt-4 pb-2 px-4 shadow-lg">
+            <div className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur border-b border-slate-800 pt-0 pb-0 px-0 shadow-lg">
               <SequenceList
                 sequences={sequences}
                 activeSequenceId={activeSequenceId}
