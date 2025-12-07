@@ -496,7 +496,7 @@ function App() {
       <div className="min-h-screen bg-slate-900 overflow-x-hidden text-slate-100 font-sans selection:bg-cyan-500/30">
         <header className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur border-b border-slate-800 shadow-xl">
           <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-4">
               {/* Logo: nascosto sotto 34px */}
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -518,7 +518,7 @@ function App() {
                 </text>
               </svg>
               {/* Testo: nascosto sotto 640px (sm) */}
-              <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-400 hidden sm:block">
+              <h1 className="gap-4 text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-400 hidden sm:block">
                 ꜱᴛʀᴜᴅᴇʟᴊᴀᴍ
               </h1>
             </div>
@@ -565,7 +565,7 @@ function App() {
                     ? 'bg-cyan-500 text-white border-cyan-500 animate-pulse'
                     : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-cyan-400 hover:border-cyan-400/50'
                 )}
-                title="Registra"
+                title="Registrazione"
               >
                 {isRecording ? <MicOff size={18} /> : <Mic size={18} />}
               </button>
@@ -695,14 +695,14 @@ function App() {
                 placeholder="// Il codice Strudel apparirà qui..."
               />
             </div>
-            <div className="flex flex-wrap justify-center sm:justify-between items-center py-2 px-4 text-xs sm:text-sm text-gray-500 border-t border-gray-200 gap-x-4 gap-y-1">
+            <div className="flex flex-wrap justify-between items-center py-2 px-4 text-xs sm:text-sm text-gray-500 border-t border-gray-200 gap-x-4 gap-y-4">
               <a
                 href="https://www.gnu.org/licenses/agpl-3.0.html"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:underline"
               >
-                AGPL-3.0
+                Licenza
               </a>
               <a href="/docs/" target="_blank" rel="noopener noreferrer" className="hover:underline">
                 Documentazione
